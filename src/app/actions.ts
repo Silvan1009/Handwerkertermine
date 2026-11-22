@@ -4,7 +4,7 @@ import { setAvailability } from "../availability";
 import { currentUser, endSession } from "../auth";
 import { ctx } from "../context";
 import { setPricing } from "../pricing";
-import { chooseOption, createRequest, proposeOption, rateUrgency, rejectOptions } from "../requests";
+import { cancelRequest, chooseOption, createRequest, proposeOption, rateUrgency, rejectOptions } from "../requests";
 import { asUser, back, run } from "./run";
 
 const LINK_SENT = "Falls alles passt, ist ein Link an deine Adresse unterwegs.";
@@ -51,4 +51,8 @@ export async function rateAction(form: FormData) {
 
 export async function pricingAction(form: FormData) {
   await asUser((u) => setPricing(ctx, u, Object.fromEntries(form)));
+}
+
+export async function cancelAction(form: FormData) {
+  await asUser((u) => cancelRequest(ctx, u, Number(form.get("requestId"))));
 }
