@@ -116,7 +116,7 @@ describe("Regeln", () => {
 describe("Dringlichkeit & Bewertung", () => {
   const bestaetigt = async (urgency = "normal") => {
     const r = await anfrage(urgency);
-    const o = await proposeOption(ctx, handwerker, opt(r.id, 8), now);
+    const o = await proposeOption(ctx, handwerker, opt(r.id, 6 + 2 * r.id), now); // je Anfrage eigene Uhrzeit (keine Überschneidung)
     await chooseOption(ctx, kunde, o.id);
     return r;
   };
@@ -186,7 +186,7 @@ describe("Härtung", () => {
   it("Score-Fenster richtet sich nach dem Bewertungszeitpunkt, nicht nach dem Alter der Anfrage", async () => {
     const confirm = async () => {
       const r = await anfrage();
-      await chooseOption(ctx, kunde, (await proposeOption(ctx, handwerker, opt(r.id, 8), now)).id);
+      await chooseOption(ctx, kunde, (await proposeOption(ctx, handwerker, opt(r.id, 6 + 2 * r.id), now)).id); // keine Überschneidung
       return r;
     };
     const alt = await confirm();
