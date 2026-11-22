@@ -1,0 +1,8 @@
+{
+  "name": "Handwerkertermine",
+  "image": "mcr.microsoft.com/devcontainers/javascript-node:22",
+  "postCreateCommand": "npm ci && npm run db:setup",
+  "postStartCommand": "nohup npm run dev > /tmp/dev.log 2>&1 &",
+  "forwardPorts": [3000],
+  "portsAttributes": { "3000": { "label": "App", "onAutoForward": "openBrowser" } }
+}

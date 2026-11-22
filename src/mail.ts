@@ -1,12 +1,19 @@
 import nodemailer from "nodemailer";
 
 export type Send = (to: string, subject: string, text: string) => Promise<void>;
+type Mail = { to: string; subject: string; text: string; at: Date };
 
 const smtp = process.env.SMTP_URL && nodemailer.createTransport(process.env.SMTP_URL);
 
-/** Ohne SMTP_URL landen Mails in der Konsole (inkl. Login-Links) – das ist nur in der Entwicklung erlaubt. */
+/** Ohne SMTP (Entwicklung): Mails landen im Test-Postfach unter /postfach und in der Konsole. */
+export const devMailboxEnabled = !smtp && process.env.NODE_ENV !== "production";
+const g = globalThis as { devMailbox?: Mail[] }; // globalThis: überlebt Hot Reload im Dev-Server
+export const devMailbox = (g.devMailbox ??= []);
+
 export const send: Send = async (to, subject, text) => {
   if (smtp) return void (await smtp.sendMail({ from: process.env.MAIL_FROM ?? "Handwerkertermine <noreply@localhost>", to, subject, text }));
-  if (process.env.NODE_ENV === "production") throw new Error("SMTP_URL fehlt – Mailversand nicht konfiguriert");
+  if (!devMailboxEnabled) throw new Error("SMTP_URL fehlt – Mailversand nicht konfiguriert");
+  devMailbox.unshift({ to, subject, text, at: new Date() });
+  devMailbox.splice(50);
   console.log(`\n📧 An: ${to}\n   ${subject}\n   ${text.replaceAll("\n", "\n   ")}\n`);
 };

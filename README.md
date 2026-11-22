@@ -7,7 +7,7 @@ Next.js (App Router, Server Actions) · Drizzle + SQLite/libSQL · Zod · Nodema
 
 ```bash
 npm i
-npm run db:reset # Migration aus dem Schema erzeugen, DB neu anlegen, Testdaten einspielen
+npm run db:setup # DB neu anlegen + Testdaten (db:reset: zusätzlich Migration aus dem Schema neu erzeugen)
 npm run dev      # http://localhost:3000
 npm test         # Unit-Tests (Vitest, < 2 s)
 npm run e2e      # Smoke-Test im echten Browser (Playwright, startet die App selbst)
@@ -15,6 +15,24 @@ npm run e2e      # Smoke-Test im echten Browser (Playwright, startet die App sel
 
 **Login in der Entwicklung:** E-Mail eingeben (z. B. `erika@example.com` oder `mueller@example.com` aus dem Seed) –
 ohne `SMTP_URL` erscheinen alle Mails samt Login-Link im Terminal von `npm run dev`. Konfiguration: siehe `.env.example`.
+
+## Auf dem Handy testen (GitHub Codespaces)
+
+Läuft komplett im Handy-Browser – keine IDE, keine Installation.
+
+1. Im Handy-Browser bei GitHub angemeldet diesen Link öffnen und **„Create codespace“** tippen:
+   <https://codespaces.new/silvan1009/handwerkertermine/tree/ccr-301f6937-hcwqpf?quickstart=1>
+2. Beim ersten Mal 2–3 Minuten warten: Pakete, Datenbank und Testdaten werden eingerichtet, die App startet automatisch.
+3. App öffnen: im Codespace unten den Tab **„Ports“** → Zeile **„App (3000)“** → 🌐 „Im Browser öffnen“.
+   Alternativ direkt die Adresse aufrufen: In der Codespace-Adresse `https://<name>.github.dev` das
+   `.github.dev` durch **`-3000.app.github.dev`** ersetzen.
+4. Anmelden: z. B. `erika@example.com` (Kundin) oder `mueller@example.com` (Handwerker) eingeben →
+   **„📬 Test-Postfach öffnen“** → **„👉 Link öffnen“**. Im Postfach landen auch alle Benachrichtigungen.
+5. Zweite Rolle gleichzeitig testen: zweiten Tab im Inkognito-Modus öffnen.
+
+Gut zu wissen: Der Codespace stoppt nach 30 Min. ohne Nutzung und startet die App beim Fortsetzen von selbst.
+Neuen Stand holen: im Codespace-Terminal `git pull && npm i && npm run db:setup` (die App lädt sich selbst neu).
+Das Postfach zeigt die letzten 50 Mails und leert sich bei jedem Neustart der App.
 
 ## Aufbau
 

@@ -8,7 +8,8 @@
     "start": "next start",
     "test": "vitest",
     "e2e": "playwright test",
-    "db:reset": "rm -rf drizzle local.db && drizzle-kit generate && drizzle-kit migrate && tsx src/db/seed.ts"
+    "db:reset": "rm -rf drizzle && drizzle-kit generate && npm run db:setup",
+    "db:setup": "rm -f local.db && drizzle-kit migrate && tsx src/db/seed.ts"
   },
   "dependencies": {
     "@libsql/client": "^0.18.0",

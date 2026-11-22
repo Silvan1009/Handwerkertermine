@@ -6,6 +6,7 @@ import { CATEGORIES, LEVELS, RATINGS, type Category } from "../db/schema";
 import { listRequests, statusOf } from "../requests";
 import { RATING_LABELS, RESTRICTED, standingsOf } from "../urgency";
 import { formatLocal as time } from "../time";
+import { devMailboxEnabled } from "../mail";
 import { KIND_LABELS, PRICE_KINDS, formatConditions, type Condition } from "../pricing";
 import * as a from "./actions";
 
@@ -25,6 +26,7 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ f
   const flash = (
     <>
       {f && <p>{f.kind === "error" ? "❌" : "✉️"} {f.text}</p>}
+      {devMailboxEnabled && <p><a href="/postfach">📬 Test-Postfach öffnen</a> (Login-Links & Benachrichtigungen)</p>}
     </>
   );
 
@@ -95,6 +97,7 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ f
         <form action={a.createRequestAction}>
           <h2>Neue Anfrage</h2>
           {craftsmen.length === 0 && <p>Kein Handwerker für diese Dringlichkeit frei.</p>}
+          <div className="scroll">
           <table>
             <thead>
               <tr>
@@ -106,13 +109,14 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ f
               {craftsmen.map((c) => (
                 <tr key={c.id}>
                   <td><input type="radio" name="craftsmanId" value={c.id} id={`c${c.id}`} required /></td>
-                  <td><label htmlFor={`c${c.id}`}>{c.name} – {c.trade}</label></td>
+                  <td><label htmlFor={`c${c.id}`}>{c.name}<br /><small>{c.trade}</small></label></td>
                   {CATEGORIES.map((k) => <td key={k}>{c[k] ? LEVEL_LABELS[c[k]] : "–"}</td>)}
                 </tr>
               ))}
             </tbody>
           </table>
-          <textarea name="description" placeholder="Was ist zu tun?" required cols={50} />
+          </div>
+          <textarea name="description" placeholder="Was ist zu tun?" required />
           <br />
           Wie dringend ist es wirklich?{" "}
           <select name="urgency" defaultValue={urgency ?? ""} required>
