@@ -100,7 +100,7 @@ test("Externer Termin anlegen und Termine pro Tag setzen", async ({ browser }) =
 
   // Ende vor Beginn → Fehlermeldung, nichts gespeichert
   await extern(hw, "2030-03-14", "12:00", "11:00", "verkehrt");
-  await expect(hw.getByText(/^❌/)).toBeVisible();
+  await expect(hw.getByText("❌ Ende muss nach Beginn liegen")).toBeVisible();
   await expect(entries(hw)).toHaveCount(1);
 });
 

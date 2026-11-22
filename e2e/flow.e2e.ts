@@ -86,3 +86,77 @@ test("Fotos sehen nur Beteiligte", async ({ browser }) => {
   const anonym = await (await browser.newContext()).request.get("http://localhost:3200/bild/1");
   expect(anonym.status()).toBe(401);
 });
+
+/** Berliner Ortszeit in `hours` Stunden als datetime-local-Wert (volle Stunde). */
+const berlinIn = (hours: number) =>
+  new Date(Date.now() + hours * 3600_000).toLocaleString("sv-SE", { timeZone: "Europe/Berlin" }).slice(0, 13).replace(" ", "T") + ":00";
+
+test("Storno: unbestätigt jederzeit, bestätigt nur bis 24 h vorher", async ({ browser }) => {
+  const kunde = await loginAs(browser, 1);
+  const hw = await loginAs(browser, 3); // Schmidt Elektro
+
+  const anfrage = async (text: string) => {
+    await kunde.goto("/");
+    await kunde.getByLabel(/Schmidt/).check();
+    await kunde.fill("textarea", text);
+    await kunde.selectOption("[name=urgency]", "normal");
+    await kunde.getByRole("button", { name: "Anfrage senden" }).click();
+    return kunde.locator("article", { hasText: text });
+  };
+
+  // 1) Unbestätigt → zurückziehen; der Handwerker sieht „storniert“ und kann nichts mehr vorschlagen
+  const a1 = await anfrage("Steckdose locker");
+  await a1.getByRole("button", { name: "Stornieren" }).click();
+  await expect(a1).toContainText("· storniert ·");
+  await hw.goto("/");
+  const h1 = hw.locator("article", { hasText: "Steckdose locker" });
+  await expect(h1).toContainText("· storniert ·");
+  await expect(h1.getByRole("button", { name: "Vorschlagen" })).toHaveCount(0);
+
+  // 2) Bestätigter Termin in ~3 h → kein Storno mehr, nur Hinweis
+  const a2 = await anfrage("Licht flackert");
+  await hw.goto("/");
+  const h2 = hw.locator("article", { hasText: "Licht flackert" });
+  await h2.locator("[name=start]").fill(berlinIn(3));
+  await h2.locator("[name=end]").fill(berlinIn(4));
+  await h2.getByRole("button", { name: "Vorschlagen" }).click();
+  await expect(hw.locator("article", { hasText: "Licht flackert" }).locator("li")).toHaveCount(1);
+  await kunde.goto("/");
+  await a2.getByRole("button", { name: "Annehmen" }).click();
+  await expect(a2).toContainText("· bestätigt ·");
+  await expect(a2.getByRole("button", { name: "Stornieren" })).toHaveCount(0);
+  await expect(a2).toContainText("Stornierung nur bis 24 h vor dem Termin möglich");
+});
+
+test("Zusammenspiel: Blocker im Kalender verhindert Vorschläge – auch Gegenvorschläge des Kunden", async ({ browser }) => {
+  const hw = await loginAs(browser, 3); // Schmidt Elektro
+  const kunde = await loginAs(browser, 1);
+
+  // Handwerker blockiert im Kalender den ganzen 6. Mai 2030
+  await hw.goto("/kalender?tag=2030-05-06");
+  const blocker = hw.getByRole("form", { name: "Blocker" });
+  await blocker.locator("[name=art]").selectOption("ganz");
+  await blocker.getByRole("button", { name: "Blocker eintragen" }).click();
+  await expect(hw.getByText("✅ Blocker eingetragen")).toBeVisible();
+
+  await kunde.goto("/");
+  await kunde.getByLabel(/Schmidt/).check();
+  await kunde.fill("textarea", "Sicherung fliegt raus");
+  await kunde.selectOption("[name=urgency]", "normal");
+  await kunde.getByRole("button", { name: "Anfrage senden" }).click();
+
+  // Vorschlag des Handwerkers am blockierten Tag → abgelehnt
+  await hw.goto("/");
+  const h = hw.locator("article", { hasText: "Sicherung fliegt raus" });
+  await h.locator("[name=start]").fill("2030-05-06T09:00");
+  await h.locator("[name=end]").fill("2030-05-06T10:00");
+  await h.getByRole("button", { name: "Vorschlagen" }).click();
+  await expect(hw.getByText("❌ Der Handwerker hat diesen Zeitraum blockiert")).toBeVisible();
+
+  // Gegenvorschlag des Kunden am blockierten Tag → ebenfalls abgelehnt, ohne private Details
+  const k = kunde.locator("article", { hasText: "Sicherung fliegt raus" });
+  await k.locator("[name=start]").fill("2030-05-06T14:00");
+  await k.locator("[name=end]").fill("2030-05-06T15:00");
+  await k.getByRole("button", { name: "Vorschlagen" }).click();
+  await expect(kunde.getByText("❌ Der Handwerker hat diesen Zeitraum blockiert")).toBeVisible();
+});

@@ -2,6 +2,8 @@
 
 Kunde stellt Anfrage (optional mit bis zu 5 Fotos) → Handwerker schlägt feste Termine und/oder Zeitfenster vor → Kunde nimmt an,
 lehnt ab oder macht einen Gegenvorschlag (den dann der Handwerker annimmt). Jeder Schritt benachrichtigt die Gegenseite per Mail.
+Kunden können Anfragen stornieren (bestätigte Termine bis 24 h vorher). Handwerker pflegen einen Kalender mit
+externen Terminen, Blockern (ganzer Tag, Vormittag, Nachmittag, eigene Stunden) und max. Terminen pro Tag.
 
 Next.js (App Router, Server Actions) · Drizzle + SQLite/libSQL · Zod · Nodemailer · Vitest.
 
@@ -42,6 +44,8 @@ Das Postfach zeigt die letzten 50 Mails und leert sich bei jedem Neustart der Ap
 | `src/availability.ts` | Inserat-Verfügbarkeit je Dringlichkeit (Notfall / 1–3 / 4–10 / ab 11 Tagen): frei, eingeschränkt, ausgebucht. |
 | `src/urgency.ts` | Scoring der Dringlichkeits-Selbsteinschätzung (siehe unten). |
 | `src/pricing.ts` | Rabatte/Aufschläge (je Dringlichkeit, App-Buchung, Erstkunde; % oder €) und welche bei einer Buchung gelten. |
+| `src/calendar.ts` | Kalender: externe Termine, Blocker, Termine pro Tag, Buchbarkeitsprüfung bei jedem Vorschlag und jeder Annahme. |
+| `src/app/kalender/` | Kalenderansicht für Handwerker (Monatsraster + Tagesdetail). |
 | `src/accounts.ts` | Registrierung, Login-Link, signierte Tokens (HMAC, stateless). |
 | `src/context.ts` | `Ctx` = alle Abhängigkeiten (DB, Mailer, Ratelimit, URL, Secret). Fachlogik bekommt ihn als Parameter. |
 | `src/errors.ts` | `UserError` = Fehler, deren Text der Nutzer sehen darf. Alles andere wird nur geloggt. |
@@ -83,6 +87,14 @@ Handwerker hinterlegen im Inserat Regeln – je Dringlichkeit (Aufschlag oder Ra
 - Bei jeder Buchung werden die geltenden Regeln als **Snapshot** in der Buchung gespeichert (`requests.conditions`)
 - Kunde und Handwerker sehen sie nur in der jeweiligen Buchung
 - **Erstkunde** = noch kein bestätigter Auftrag dieses Kunden bei diesem Handwerker zum Zeitpunkt der Anfrage
+
+### Storno & Kalender
+
+- **Storno:** nur der Kunde; unbestätigte Anfragen jederzeit, bestätigte nur, wenn der Termin (bzw. Beginn des Zeitfensters)
+  noch ≥ 24 h entfernt ist. Danach sind keine Aktionen mehr möglich, der Handwerker bekommt eine Mail.
+- **Buchbarkeit:** Jeder Vorschlag (auch Gegenvorschläge des Kunden) und jede Annahme wird geprüft: blockiert? Überschneidung
+  mit App- oder externem Termin? Tageslimit erreicht? Kunden sehen dabei keine privaten Details des Handwerkers.
+- **Termine pro Tag** zählt App- und externe Termine am Berliner Kalendertag ihres Beginns; Stornierte zählen nicht.
 
 Schema ändern: `src/db/schema.ts` anpassen → `npm run db:reset`. Die App ist nicht produktiv: Es gibt genau eine
 Migration, die bei jeder Schemaänderung komplett neu erzeugt wird – keine Rücksicht auf Bestandsdaten.

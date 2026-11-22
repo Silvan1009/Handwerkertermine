@@ -240,7 +240,9 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ f
               <form action={a.cancelAction}>
                 <button name="requestId" value={r.id}>Stornieren</button>
               </form>
-            ) : <p><small>Stornierung nur bis 24 h vor dem Termin möglich</small></p>)}
+            ) : r.options.some((o) => o.id === r.chosenOptionId && o.start > new Date()) && (
+              <p><small>Stornierung nur bis 24 h vor dem Termin möglich</small></p>
+            ))}
           </article>
         );
       })}
