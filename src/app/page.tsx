@@ -3,7 +3,7 @@ import { currentUser } from "../auth";
 import { ctx } from "../context";
 import { CATEGORY_LABELS, LEVEL_LABELS, findCraftsmen } from "../availability";
 import { CATEGORIES, LEVELS, RATINGS, type Category } from "../db/schema";
-import { listRequests, statusOf } from "../requests";
+import { canCancel, listRequests, statusOf } from "../requests";
 import { RATING_LABELS, RESTRICTED, standingsOf } from "../urgency";
 import { formatLocal as time } from "../time";
 import { devMailboxEnabled } from "../mail";
@@ -71,6 +71,7 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ f
         Angemeldet als <b>{user.name}</b>{" "}
         <form action={a.logoutAction} style={inline}><button>Abmelden</button></form>
       </div>
+      {!isKunde && <p><a href="/kalender">📅 Kalender</a></p>}
       {flash}
 
       {myStanding && (
@@ -179,7 +180,7 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ f
 
       <h2>{isKunde ? "Meine Anfragen" : "Eingegangene Anfragen"}</h2>
       {list.map((r) => {
-        const open = !r.chosenOptionId;
+        const open = !r.chosenOptionId && !r.cancelledAt;
         const fromOther = r.options.some((o) => !o.rejected && o.proposedById !== user.id);
         return (
           <article key={r.id} style={{ borderTop: "1px solid #ccc", padding: "0.5rem 0" }}>
@@ -211,7 +212,7 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ f
                 </li>
               ))}
             </ul>
-            {!isKunde && !open && !r.urgencyRating && (
+            {!isKunde && !open && !r.cancelledAt && !r.urgencyRating && (
               <form action={a.rateAction}>
                 <input type="hidden" name="requestId" value={r.id} />
                 War „{CATEGORY_LABELS[r.urgency]}“ passend?{" "}
@@ -235,6 +236,11 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ f
                 <input type="datetime-local" name="end" required /> <button>Vorschlagen</button>
               </form>
             )}
+            {isKunde && !r.cancelledAt && (canCancel(r) ? (
+              <form action={a.cancelAction}>
+                <button name="requestId" value={r.id}>Stornieren</button>
+              </form>
+            ) : <p><small>Stornierung nur bis 24 h vor dem Termin möglich</small></p>)}
           </article>
         );
       })}
