@@ -1,10 +1,11 @@
-import { and, desc, eq, isNull, ne } from "drizzle-orm";
+import { and, desc, eq, isNotNull, isNull, ne } from "drizzle-orm";
 import { z } from "zod";
 import type { Ctx } from "./context";
 import type { Db } from "./db";
 import { CATEGORIES, RATINGS, options, requests, users } from "./db/schema";
 import { CATEGORY_LABELS } from "./availability";
 import { RESTRICTED, standingOf } from "./urgency";
+import { calcQuote, eur, parseEuro } from "./pricing";
 
 export type User = typeof users.$inferSelect;
 type Parties = { customerId: number; craftsmanId: number; customer: User; craftsman: User; description: string };
@@ -122,6 +123,25 @@ export async function rateUrgency(ctx: Ctx, user: User, requestId: number, ratin
     .where(and(eq(requests.id, req.id), isNull(requests.urgencyRating)))
     .returning();
   if (!row) throw new Error("Bereits bewertet");
+}
+
+/** Handwerker gibt (vor Bestätigung) einen Grundpreis an; seine Preisregeln werden angewendet. */
+export async function setQuote(ctx: Ctx, user: User, requestId: number, basePrice: unknown) {
+  const req = participant(await loadRequest(ctx.db, requestId), user);
+  if (req.craftsmanId !== user.id) deny();
+  if (req.chosenOptionId) throw new Error("Anfrage ist bereits bestätigt");
+  const earlier = await ctx.db.query.requests.findFirst({
+    where: and(
+      eq(requests.customerId, req.customerId),
+      eq(requests.craftsmanId, req.craftsmanId),
+      isNotNull(requests.chosenOptionId),
+      ne(requests.id, req.id),
+    ),
+  });
+  const quote = calcQuote(parseEuro(basePrice), req.craftsman.pricing ?? {}, { urgency: req.urgency, firstCustomer: !earlier });
+  await ctx.db.update(requests).set({ quote }).where(eq(requests.id, req.id));
+  await notifyOther(ctx, req, user, `Preisangebot von ${user.name}: ${eur(quote.total)}`);
+  return quote;
 }
 
 export function listRequests(ctx: Ctx, user: User) {

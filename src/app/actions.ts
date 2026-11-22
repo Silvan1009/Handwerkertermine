@@ -5,7 +5,8 @@ import { register, sendLoginLink } from "../accounts";
 import { setAvailability } from "../availability";
 import { currentUser, endSession } from "../auth";
 import { ctx } from "../context";
-import { chooseOption, createRequest, proposeOption, rateUrgency, rejectOptions, type User } from "../requests";
+import { setPricing } from "../pricing";
+import { chooseOption, createRequest, proposeOption, rateUrgency, rejectOptions, setQuote, type User } from "../requests";
 
 const message = (e: unknown) =>
   e instanceof z.ZodError ? e.issues[0].message : e instanceof Error ? e.message : "Fehler";
@@ -64,4 +65,12 @@ export async function availabilityAction(form: FormData) {
 
 export async function rateAction(form: FormData) {
   await asUser((u) => rateUrgency(ctx, u, Number(form.get("requestId")), form.get("rating")));
+}
+
+export async function pricingAction(form: FormData) {
+  await asUser((u) => setPricing(ctx, u, Object.fromEntries(form)));
+}
+
+export async function quoteAction(form: FormData) {
+  await asUser((u) => setQuote(ctx, u, Number(form.get("requestId")), form.get("basePrice")));
 }

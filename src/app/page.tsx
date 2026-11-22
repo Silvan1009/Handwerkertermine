@@ -4,6 +4,7 @@ import { CATEGORY_LABELS, LEVEL_LABELS, findCraftsmen } from "../availability";
 import { CATEGORIES, LEVELS, RATINGS, type Category } from "../db/schema";
 import { listRequests, statusOf } from "../requests";
 import { RATING_LABELS, RESTRICTED, standingOf } from "../urgency";
+import { KIND_LABELS, PRICE_KINDS, eur, formatRule, type Pricing, type Quote } from "../pricing";
 import * as a from "./actions";
 
 export const dynamic = "force-dynamic";
@@ -11,6 +12,14 @@ export const dynamic = "force-dynamic";
 const time = (d: Date) =>
   d.toLocaleString("de-DE", { weekday: "short", day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" });
 const inline = { display: "inline" };
+const conditions = (p: Pricing | null) =>
+  PRICE_KINDS.filter((k) => p?.[k]).map((k) => `${KIND_LABELS[k]} ${formatRule(p![k]!)}`).join(" · ") || "–";
+const QuoteView = ({ q }: { q: Quote }) => (
+  <p>
+    💶 Grundpreis {eur(q.base)}
+    {q.lines.map((l) => <span key={l.label}> · {l.label}: {l.amount > 0 ? "+" : ""}{eur(l.amount)}</span>)} → <b>{eur(q.total)}</b>
+  </p>
+);
 
 export default async function Home({ searchParams }: { searchParams: Promise<{ error?: string; info?: string; dringlichkeit?: string }> }) {
   const user = await currentUser();
@@ -99,6 +108,7 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ e
               <tr>
                 <th /><th align="left">Handwerker</th>
                 {CATEGORIES.map((k) => <th key={k}>{CATEGORY_LABELS[k]}</th>)}
+                <th>Rabatte / Aufschläge</th>
               </tr>
             </thead>
             <tbody>
@@ -107,6 +117,7 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ e
                   <td><input type="radio" name="craftsmanId" value={c.id} id={`c${c.id}`} required /></td>
                   <td><label htmlFor={`c${c.id}`}>{c.name} – {c.trade}</label></td>
                   {CATEGORIES.map((k) => <td key={k}>{c[k] ? LEVEL_LABELS[c[k]] : "–"}</td>)}
+                  <td><small>{conditions(c.pricing)}</small></td>
                 </tr>
               ))}
             </tbody>
@@ -141,6 +152,32 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ e
         </form>
       )}
 
+      {!isKunde && (
+        <form action={a.pricingAction}>
+          <h2>Mein Inserat: Rabatte & Aufschläge</h2>
+          <small>Bezogen auf den Grundpreis je Auftrag. Positiv = Aufschlag, negativ = Rabatt, leer = keine Regel.</small>
+          {PRICE_KINDS.map((k) => {
+            const r = user.pricing?.[k];
+            return (
+              <label key={k} style={{ display: "block" }}>
+                {KIND_LABELS[k]}:{" "}
+                <input
+                  name={`${k}_value`}
+                  size={6}
+                  placeholder={k === "app" || k === "erstkunde" ? "-10" : "+50"}
+                  defaultValue={r ? (r.mode === "absolut" ? r.value / 100 : r.value) : ""}
+                />{" "}
+                <select name={`${k}_mode`} defaultValue={r?.mode ?? "prozent"}>
+                  <option value="prozent">%</option>
+                  <option value="absolut">€</option>
+                </select>
+              </label>
+            );
+          })}
+          <button>Speichern</button>
+        </form>
+      )}
+
       <h2>{isKunde ? "Meine Anfragen" : "Eingegangene Anfragen"}</h2>
       {list.map((r) => {
         const open = !r.chosenOptionId;
@@ -151,6 +188,14 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ e
             {r.urgencyRating && <> · Einschätzung bewertet: {RATING_LABELS[r.urgencyRating]}</>}
             {!isKunde && <><br /><small>Kunde bisher: {standingText(r.customerId)}</small></>}
             <p>{r.description}</p>
+            {r.quote ? <QuoteView q={r.quote} /> : <p>💶 noch kein Preisangebot</p>}
+            {!isKunde && open && (
+              <form action={a.quoteAction}>
+                <input type="hidden" name="requestId" value={r.id} />
+                Grundpreis €: <input name="basePrice" size={8} required defaultValue={r.quote ? r.quote.base / 100 : ""} />{" "}
+                <button>{r.quote ? "Preis aktualisieren" : "Preis anbieten"}</button>
+              </form>
+            )}
             <ul>
               {r.options.map((o) => (
                 <li key={o.id} style={o.rejected ? { textDecoration: "line-through", opacity: 0.5 } : undefined}>
