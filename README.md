@@ -9,7 +9,8 @@ Next.js (App Router, Server Actions) · Drizzle + SQLite/libSQL · Zod · Nodema
 npm i
 npm run db:migrate && npm run db:seed
 npm run dev      # http://localhost:3000
-npm test
+npm test         # Unit-Tests (Vitest, < 2 s)
+npm run e2e      # Smoke-Test im echten Browser (Playwright, startet die App selbst)
 ```
 
 **Login in der Entwicklung:** E-Mail eingeben (z. B. `erika@example.com` oder `mueller@example.com` aus dem Seed) –
@@ -24,15 +25,23 @@ ohne `SMTP_URL` erscheinen alle Mails samt Login-Link im Terminal von `npm run d
 | `src/urgency.ts` | Scoring der Dringlichkeits-Selbsteinschätzung (siehe unten). |
 | `src/pricing.ts` | Rabatte/Aufschläge (je Dringlichkeit, App-Buchung, Erstkunde; % oder €) und welche bei einer Buchung gelten. |
 | `src/accounts.ts` | Registrierung, Login-Link, signierte Tokens (HMAC, stateless). |
-| `src/context.ts` | `Ctx` = alle Abhängigkeiten (DB, Mailer, URL, Secret). Fachlogik bekommt ihn als Parameter. |
+| `src/context.ts` | `Ctx` = alle Abhängigkeiten (DB, Mailer, Ratelimit, URL, Secret). Fachlogik bekommt ihn als Parameter. |
+| `src/errors.ts` | `UserError` = Fehler, deren Text der Nutzer sehen darf. Alles andere wird nur geloggt. |
+| `src/time.ts` | Termine sind immer Europe/Berlin – unabhängig von der Zeitzone des Servers. |
+| `src/ratelimit.ts` | Spam-Bremse (In-Memory, pro Instanz). |
 | `src/auth.ts` / `src/app/login/route.ts` | Session-Cookie und Link-Einlösung – die einzigen Stellen mit Next-spezifischem Auth-Code. |
 | `src/*.test.ts` | Tests gegen echte In-Memory-SQLite + Mail-Postfach (`src/test-ctx.ts`) – keine Mocks. |
+| `e2e/*.e2e.ts` | Browser-Smoke-Test; scheitert auch bei jedem Fehler in der Browser-Konsole. |
 | `src/app/**` | Dünne UI: eine Seite, Server Actions rufen nur die Fachlogik auf. |
 
 Designentscheidungen:
 - **Vorschläge sind symmetrisch:** jede Seite kann vorschlagen, annehmen kann nur die Gegenseite. Gegenvorschlag ist damit kein Sonderfall.
 - **Status wird abgeleitet**, nicht gespeichert (`statusOf`).
 - **Login-Links** sind 15 Min. gültig und bis dahin mehrfach nutzbar – damit machen Link-Vorschauen von Mailprogrammen sie nicht kaputt.
+- **Registrierung:** Der Account entsteht erst beim Klick auf den Bestätigungslink – niemand kann fremde Adressen vorbelegen.
+- **Abmelden** beendet alle Sitzungen des Users (auch auf anderen Geräten oder mit gestohlenem Cookie).
+- **Statusmeldungen** in der URL sind signiert – manipulierte `?flash=`-Links zeigen nichts an.
+- **Limits:** 5 Login-/Registrierungslinks pro Adresse und Stunde, 10 Anfragen pro Kunde und Tag.
 - **Mailfehler** werden geloggt, kippen aber keine bereits gespeicherte Aktion.
 
 ### Dringlichkeits-Scoring
@@ -59,6 +68,6 @@ Schema ändern: `src/db/schema.ts` anpassen → `npm run db:generate` → `npm r
 
 ## Bewusste Vereinfachungen
 
-- Kein Rate-Limit auf „Login-Link senden“ – vor Go-Live z. B. per Reverse Proxy.
+- Ratelimit ist In-Memory pro Instanz und nicht pro IP – bei mehreren Instanzen auf Redis o. Ä. umstellen, zusätzlich IP-Limits im Reverse Proxy.
+- Listen sind begrenzt (50 Anfragen, 100 Handwerker), es gibt noch kein Blättern.
 - Keine Profilbearbeitung, keine Suche/Filter nach Gewerk oder Ort.
-- Zeitzone fest `Europe/Berlin` (`next.config.ts`).

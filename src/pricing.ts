@@ -1,4 +1,5 @@
 import { eq } from "drizzle-orm";
+import { UserError } from "./errors";
 import type { Ctx } from "./context";
 import { CATEGORIES, users } from "./db/schema";
 import { CATEGORY_LABELS } from "./availability";
@@ -26,12 +27,13 @@ export function parsePricing(input: Record<string, unknown>): Pricing {
   const out: Pricing = {};
   for (const k of PRICE_KINDS) {
     const raw = String(input[`${k}_value`] ?? "").trim();
-    if (!raw) continue;
     const n = Number(raw.replace(",", "."));
+    if (!raw || n === 0) continue; // 0 = keine Regel
     const mode = input[`${k}_mode`] === "absolut" ? "absolut" : "prozent";
-    if (!Number.isFinite(n)) throw new Error(`${KIND_LABELS[k]}: keine gültige Zahl`);
-    if (DISCOUNT_ONLY.includes(k) && n > 0) throw new Error(`${KIND_LABELS[k]}: nur Rabatte (negative Werte) erlaubt`);
-    if (mode === "prozent" && n < -100) throw new Error(`${KIND_LABELS[k]}: mehr als 100 % Rabatt geht nicht`);
+    if (!Number.isFinite(n)) throw new UserError(`${KIND_LABELS[k]}: keine gültige Zahl`);
+    if (DISCOUNT_ONLY.includes(k) && n > 0) throw new UserError(`${KIND_LABELS[k]}: nur Rabatte (negative Werte) erlaubt`);
+    const [min, max] = mode === "prozent" ? [-100, 300] : [-5000, 5000];
+    if (n < min || n > max) throw new UserError(`${KIND_LABELS[k]}: erlaubt sind ${min} bis +${max} ${mode === "prozent" ? "%" : "€"}`);
     out[k] = { mode, value: mode === "absolut" ? Math.round(n * 100) : n };
   }
   return out;
@@ -44,6 +46,6 @@ export function conditionsFor(pricing: Pricing, o: { urgency: Kind; firstCustome
 }
 
 export async function setPricing(ctx: Ctx, user: User, input: Record<string, unknown>) {
-  if (user.role !== "handwerker") throw new Error("Nicht erlaubt");
+  if (user.role !== "handwerker") throw new UserError("Nicht erlaubt");
   await ctx.db.update(users).set({ pricing: parsePricing(input) }).where(eq(users.id, user.id));
 }

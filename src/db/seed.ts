@@ -1,7 +1,7 @@
-import { db } from "./index";
+import { ctx } from "../context";
 import { users } from "./schema";
 
-await db.insert(users).values([
+await ctx.db.insert(users).values([
   { name: "Erika Kundin", email: "erika@example.com", role: "kunde" },
   { name: "Müller Sanitär", email: "mueller@example.com", role: "handwerker", trade: "Sanitär" },
   { name: "Schmidt Elektro", email: "schmidt@example.com", role: "handwerker", trade: "Elektriker" },

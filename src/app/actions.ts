@@ -1,34 +1,33 @@
 "use server";
 import { redirect } from "next/navigation";
-import { z } from "zod";
-import { register, sendLoginLink } from "../accounts";
+import { endAllSessions, register, sealFlash, sendLoginLink, type Flash } from "../accounts";
 import { setAvailability } from "../availability";
 import { currentUser, endSession } from "../auth";
 import { ctx } from "../context";
+import { userMessage } from "../errors";
 import { setPricing } from "../pricing";
 import { chooseOption, createRequest, proposeOption, rateUrgency, rejectOptions, type User } from "../requests";
 
-const message = (e: unknown) =>
-  e instanceof z.ZodError ? e.issues[0].message : e instanceof Error ? e.message : "Fehler";
+const back = (f?: Flash): never => redirect(f ? `/?flash=${sealFlash(ctx, f)}` : "/");
 
-/** Führt eine Aktion aus und zeigt Erfolg/Fehler über die URL an – kein Client-State nötig. */
+/** Führt eine Aktion aus und zeigt Erfolg/Fehler über eine signierte Meldung an – kein Client-State nötig. */
 async function run(fn: () => Promise<unknown>, info?: string) {
-  let error = "";
+  let flash: Flash | undefined = info ? { kind: "info", text: info } : undefined;
   try {
     await fn();
   } catch (e) {
-    error = message(e);
+    flash = { kind: "error", text: userMessage(e) };
   }
-  redirect(error ? `/?error=${encodeURIComponent(error)}` : info ? `/?info=${encodeURIComponent(info)}` : "/");
+  back(flash);
 }
 
 async function asUser(fn: (user: User) => Promise<unknown>) {
   const user = await currentUser();
-  if (!user) redirect("/");
+  if (!user) return back();
   await run(() => fn(user));
 }
 
-const LINK_SENT = "Falls die Adresse registriert ist, ist ein Login-Link unterwegs.";
+const LINK_SENT = "Falls alles passt, ist ein Link an deine Adresse unterwegs.";
 
 export async function loginAction(form: FormData) {
   await run(() => sendLoginLink(ctx, form.get("email")), LINK_SENT);
@@ -39,8 +38,10 @@ export async function registerAction(form: FormData) {
 }
 
 export async function logoutAction() {
+  const user = await currentUser();
+  if (user) await endAllSessions(ctx, user.id);
   await endSession();
-  redirect("/");
+  back();
 }
 
 export async function createRequestAction(form: FormData) {

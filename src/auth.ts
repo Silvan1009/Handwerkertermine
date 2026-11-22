@@ -1,22 +1,18 @@
-import { eq } from "drizzle-orm";
 import { cookies } from "next/headers";
-import { sign, verify } from "./accounts";
+import { sessionToken, sessionUser } from "./accounts";
 import { ctx } from "./context";
-import { users } from "./db/schema";
 
-const THIRTY_DAYS = 30 * 24 * 3600_000;
-
+// Einzige Stelle mit Cookie-Handling; die Logik dahinter steckt testbar in accounts.ts.
 export async function currentUser() {
-  const id = verify((await cookies()).get("session")?.value ?? "", "session", ctx.secret);
-  return id ? ctx.db.query.users.findFirst({ where: eq(users.id, id) }) : undefined;
+  return sessionUser(ctx, (await cookies()).get("session")?.value ?? "");
 }
 
-export async function startSession(userId: number) {
-  (await cookies()).set("session", sign("session", userId, ctx.secret, THIRTY_DAYS), {
+export async function startSession(user: { id: number; sessionVersion: number }) {
+  (await cookies()).set("session", sessionToken(ctx, user), {
     httpOnly: true,
     sameSite: "lax",
     secure: process.env.NODE_ENV === "production",
-    maxAge: THIRTY_DAYS / 1000,
+    maxAge: 30 * 24 * 3600,
   });
 }
 

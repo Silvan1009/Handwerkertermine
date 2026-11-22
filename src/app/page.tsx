@@ -1,29 +1,30 @@
+import { openFlash } from "../accounts";
 import { currentUser } from "../auth";
 import { ctx } from "../context";
 import { CATEGORY_LABELS, LEVEL_LABELS, findCraftsmen } from "../availability";
 import { CATEGORIES, LEVELS, RATINGS, type Category } from "../db/schema";
 import { listRequests, statusOf } from "../requests";
-import { RATING_LABELS, RESTRICTED, standingOf } from "../urgency";
+import { RATING_LABELS, RESTRICTED, standingsOf } from "../urgency";
+import { formatLocal as time } from "../time";
 import { KIND_LABELS, PRICE_KINDS, formatConditions, type Condition } from "../pricing";
 import * as a from "./actions";
 
 export const dynamic = "force-dynamic";
 
-const time = (d: Date) =>
-  d.toLocaleString("de-DE", { weekday: "short", day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" });
 const inline = { display: "inline" };
 /** In der Buchung geltende Rabatte/Aufschläge – Abrechnung erfolgt außerhalb der App. */
 const Conditions = ({ conditions }: { conditions: Condition[] }) =>
   conditions.length > 0 && <p>💶 Konditionen dieser Buchung: {formatConditions(conditions)}</p>;
 
-export default async function Home({ searchParams }: { searchParams: Promise<{ error?: string; info?: string; dringlichkeit?: string }> }) {
+export default async function Home({ searchParams }: { searchParams: Promise<{ flash?: string; dringlichkeit?: string }> }) {
   const user = await currentUser();
-  const { error, info, dringlichkeit } = await searchParams;
+  const params = await searchParams;
+  const f = params.flash ? openFlash(ctx, params.flash) : null; // nur von uns signierte Meldungen anzeigen
+  const dringlichkeit = params.dringlichkeit;
   const urgency = CATEGORIES.find((c) => c === dringlichkeit) as Category | undefined;
   const flash = (
     <>
-      {error && <p>❌ {error}</p>}
-      {info && <p>✉️ {info}</p>}
+      {f && <p>{f.kind === "error" ? "❌" : "✉️"} {f.text}</p>}
     </>
   );
 
@@ -53,11 +54,7 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ e
   const list = await listRequests(ctx, user);
   const craftsmen = isKunde ? await findCraftsmen(ctx, urgency) : [];
   // Kunde: eigenes Profil; Handwerker: Zuverlässigkeit jedes anfragenden Kunden
-  const standings = new Map(
-    await Promise.all(
-      [...new Set(isKunde ? [user.id] : list.map((r) => r.customerId))].map(async (id) => [id, await standingOf(ctx, id)] as const),
-    ),
-  );
+  const standings = await standingsOf(ctx, [...new Set(isKunde ? [user.id] : list.map((r) => r.customerId))]);
   const standingText = (id: number) => {
     const s = standings.get(id)!;
     const count = (r: (typeof RATINGS)[number]) => s.ratings.filter((x) => x === r).length;
@@ -67,10 +64,10 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ e
 
   return (
     <>
-      <p>
+      <div>
         Angemeldet als <b>{user.name}</b>{" "}
         <form action={a.logoutAction} style={inline}><button>Abmelden</button></form>
-      </p>
+      </div>
       {flash}
 
       {myStanding && (

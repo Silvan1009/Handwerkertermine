@@ -4,6 +4,7 @@ import { users } from "./db/schema";
 import { eq } from "drizzle-orm";
 import { chooseOption, createRequest, listRequests, proposeOption, rateUrgency, rejectOptions, statusOf, type User } from "./requests";
 import { testCtx } from "./test-ctx";
+import { standingOf } from "./urgency";
 
 const now = new Date(2030, 0, 1);
 const opt = (requestId: number, h: number) => ({
@@ -166,5 +167,43 @@ describe("Konditionen der Buchung", () => {
     await anfrage("notfall");
     await ctx.db.update(users).set({ pricing: {} }).where(eq(users.id, handwerker.id));
     expect(kinds((await listRequests(ctx, kunde))[0])).toEqual(["notfall", "erstkunde"]);
+  });
+});
+
+describe("Härtung", () => {
+  it("Formularwerte werden als Berliner Ortszeit gelesen", async () => {
+    const r = await anfrage();
+    const o = await proposeOption(ctx, handwerker, { requestId: r.id, kind: "termin", start: "2030-07-01T08:00", end: "2030-07-01T10:00" }, now);
+    expect(o.start.toISOString()).toBe("2030-07-01T06:00:00.000Z");
+    await expect(proposeOption(ctx, handwerker, { requestId: r.id, kind: "termin", start: "bald", end: "" }, now)).rejects.toThrow("Ungültiges Datum");
+  });
+
+  it("höchstens 10 Anfragen pro Kunde und Tag", async () => {
+    for (let i = 0; i < 10; i++) await anfrage();
+    await expect(anfrage()).rejects.toThrow("Zu viele Versuche");
+  });
+
+  it("Score-Fenster richtet sich nach dem Bewertungszeitpunkt, nicht nach dem Alter der Anfrage", async () => {
+    const confirm = async () => {
+      const r = await anfrage();
+      await chooseOption(ctx, kunde, (await proposeOption(ctx, handwerker, opt(r.id, 8), now)).id);
+      return r;
+    };
+    const alt = await confirm();
+    const neu = await confirm();
+    await rateUrgency(ctx, handwerker, neu.id, "gut");
+    await new Promise((res) => setTimeout(res, 1100)); // Zeitstempel haben Sekundenauflösung
+    await rateUrgency(ctx, handwerker, alt.id, "katastrophe");
+    expect((await standingOf(ctx, kunde.id)).ratings).toEqual(["katastrophe", "gut"]);
+  });
+});
+
+describe("Gleichzeitige Aktionen bleiben konsistent", () => {
+  it("Annehmen und Ablehnen gleichzeitig: nie ein abgelehnter Vorschlag als bestätigter Termin", async () => {
+    const r = await anfrage();
+    const o = await proposeOption(ctx, handwerker, opt(r.id, 8), now);
+    await Promise.allSettled([chooseOption(ctx, kunde, o.id), rejectOptions(ctx, kunde, r.id)]);
+    const [after] = await listRequests(ctx, kunde);
+    expect(after.chosenOptionId && after.options.find((x) => x.id === after.chosenOptionId)?.rejected).toBeFalsy();
   });
 });

@@ -36,6 +36,11 @@ describe("parsePricing", () => {
   });
   it("Unsinn wird abgelehnt", () => {
     expect(() => parsePricing({ normal_value: "abc" })).toThrow("keine gültige Zahl");
-    expect(() => parsePricing({ normal_value: "-150", normal_mode: "prozent" })).toThrow("100 %");
+    expect(() => parsePricing({ normal_value: "-150", normal_mode: "prozent" })).toThrow("-100 bis +300 %");
+    expect(() => parsePricing({ notfall_value: "10000" })).toThrow("-100 bis +300 %");
+    expect(() => parsePricing({ notfall_value: "6000", notfall_mode: "absolut" })).toThrow("-5000 bis +5000 €");
+  });
+  it("0 = keine Regel", () => {
+    expect(parsePricing({ notfall_value: "0" })).toEqual({});
   });
 });
