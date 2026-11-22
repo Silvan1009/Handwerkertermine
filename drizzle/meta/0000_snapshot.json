@@ -1,7 +1,7 @@
 {
   "version": "6",
   "dialect": "sqlite",
-  "id": "9ea5ee08-ace8-4fd9-8890-336883a8a100",
+  "id": "8651a825-28d5-41a2-b2b8-01045ba9d0b7",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "tables": {
     "options": {
@@ -16,6 +16,13 @@
         },
         "requestId": {
           "name": "requestId",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "proposedById": {
+          "name": "proposedById",
           "type": "integer",
           "primaryKey": false,
           "notNull": true,
@@ -41,6 +48,14 @@
           "primaryKey": false,
           "notNull": true,
           "autoincrement": false
+        },
+        "rejected": {
+          "name": "rejected",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": false
         }
       },
       "indexes": {},
@@ -51,6 +66,19 @@
           "tableTo": "requests",
           "columnsFrom": [
             "requestId"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "options_proposedById_users_id_fk": {
+          "name": "options_proposedById_users_id_fk",
+          "tableFrom": "options",
+          "tableTo": "users",
+          "columnsFrom": [
+            "proposedById"
           ],
           "columnsTo": [
             "id"
@@ -152,6 +180,13 @@
           "notNull": true,
           "autoincrement": false
         },
+        "email": {
+          "name": "email",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
         "role": {
           "name": "role",
           "type": "text",
@@ -167,7 +202,15 @@
           "autoincrement": false
         }
       },
-      "indexes": {},
+      "indexes": {
+        "users_email_unique": {
+          "name": "users_email_unique",
+          "columns": [
+            "email"
+          ],
+          "isUnique": true
+        }
+      },
       "foreignKeys": {},
       "compositePrimaryKeys": {},
       "uniqueConstraints": {},

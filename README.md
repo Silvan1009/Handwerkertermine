@@ -1,33 +1,41 @@
 # Handwerkertermine
 
-Kunde stellt Anfrage → Handwerker schlägt feste Termine und/oder Zeitfenster vor → Kunde wählt eine Option.
+Kunde stellt Anfrage → Handwerker schlägt feste Termine und/oder Zeitfenster vor → Kunde nimmt an,
+lehnt ab oder macht einen Gegenvorschlag (den dann der Handwerker annimmt). Jeder Schritt benachrichtigt die Gegenseite per Mail.
 
-Next.js (App Router, Server Actions) · Drizzle + SQLite/libSQL · Zod · Vitest.
+Next.js (App Router, Server Actions) · Drizzle + SQLite/libSQL · Zod · Nodemailer · Vitest.
 
 ```bash
 npm i
 npm run db:migrate && npm run db:seed
-npm run dev      # http://localhost:3000 – Dev-Login per Klick
+npm run dev      # http://localhost:3000
 npm test
 ```
+
+**Login in der Entwicklung:** E-Mail eingeben (z. B. `erika@example.com` oder `mueller@example.com` aus dem Seed) –
+ohne `SMTP_URL` erscheinen alle Mails samt Login-Link im Terminal von `npm run dev`. Konfiguration: siehe `.env.example`.
 
 ## Aufbau
 
 | Datei | Zweck |
 |---|---|
-| `src/requests.ts` | Gesamte Fachlogik inkl. Berechtigungen. Bekommt DB und User als Parameter. |
-| `src/requests.test.ts` | Tests gegen echte In-Memory-SQLite – keine Mocks. |
-| `src/db/schema.ts` | `users` (Rolle kunde/handwerker), `requests`, `options` (termin/zeitfenster). |
-| `src/auth.ts` | `currentUser()` – einzige Stelle, die Auth kennt. |
-| `src/app/**` | Dünne UI: eine Seite, Server Actions rufen nur `requests.ts` auf. |
+| `src/requests.ts` | Fachlogik: Anfragen, Vorschläge, Annehmen, Ablehnen, Berechtigungen, Benachrichtigungen. |
+| `src/accounts.ts` | Registrierung, Login-Link, signierte Tokens (HMAC, stateless). |
+| `src/context.ts` | `Ctx` = alle Abhängigkeiten (DB, Mailer, URL, Secret). Fachlogik bekommt ihn als Parameter. |
+| `src/auth.ts` / `src/app/login/route.ts` | Session-Cookie und Link-Einlösung – die einzigen Stellen mit Next-spezifischem Auth-Code. |
+| `src/*.test.ts` | Tests gegen echte In-Memory-SQLite + Mail-Postfach (`src/test-ctx.ts`) – keine Mocks. |
+| `src/app/**` | Dünne UI: eine Seite, Server Actions rufen nur die Fachlogik auf. |
 
-Status einer Anfrage wird abgeleitet, nicht gespeichert: keine Optionen → wartet, Optionen → Vorschläge liegen vor, gewählt → bestätigt.
+Designentscheidungen:
+- **Vorschläge sind symmetrisch:** jede Seite kann vorschlagen, annehmen kann nur die Gegenseite. Gegenvorschlag ist damit kein Sonderfall.
+- **Status wird abgeleitet**, nicht gespeichert (`statusOf`).
+- **Login-Links** sind 15 Min. gültig und bis dahin mehrfach nutzbar – damit machen Link-Vorschauen von Mailprogrammen sie nicht kaputt.
+- **Mailfehler** werden geloggt, kippen aber keine bereits gespeicherte Aktion.
 
 Schema ändern: `src/db/schema.ts` anpassen → `npm run db:generate` → `npm run db:migrate`.
 
-## Bewusste Vereinfachungen (später ersetzen)
+## Bewusste Vereinfachungen
 
-- **Dev-Login ohne Passwort** (Cookie mit User-ID) – vor Go-Live echte Auth in `src/auth.ts`.
-- Keine Benachrichtigungen (E-Mail) bei neuer Anfrage/Vorschlag/Auswahl.
-- Kunde kann keine Gegenvorschläge machen oder alle Vorschläge ablehnen.
+- Kein Rate-Limit auf „Login-Link senden“ – vor Go-Live z. B. per Reverse Proxy.
+- Keine Profilbearbeitung, keine Suche/Filter nach Gewerk oder Ort.
 - Zeitzone fest `Europe/Berlin` (`next.config.ts`).
