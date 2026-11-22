@@ -48,11 +48,9 @@ export async function deleteEntry(ctx: Ctx, user: User, entryId: number): Promis
 }
 
 // "" aus dem Formular = unbegrenzt
+const MAX = "Termine pro Tag: ganze Zahl von 1 bis 50 (leer = unbegrenzt)";
 const MaxInput = z.object({
-  maxPerDay: z.union([
-    z.literal("").transform(() => null),
-    z.coerce.number("Ganze Zahl von 1 bis 50").int("Ganze Zahl von 1 bis 50").min(1, "Ganze Zahl von 1 bis 50").max(50, "Ganze Zahl von 1 bis 50"),
-  ]),
+  maxPerDay: z.preprocess((v) => (v === "" ? null : Number(v)), z.number(MAX).int(MAX).min(1, MAX).max(50, MAX).nullable()),
 });
 
 /** Max. Termine pro Tag. input: { maxPerDay: "" (= unbegrenzt) | Zahl ≥ 1 }. Nur Handwerker. */
