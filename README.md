@@ -1,6 +1,6 @@
 # Handwerkertermine
 
-Kunde stellt Anfrage → Handwerker schlägt feste Termine und/oder Zeitfenster vor → Kunde nimmt an,
+Kunde stellt Anfrage (optional mit bis zu 5 Fotos) → Handwerker schlägt feste Termine und/oder Zeitfenster vor → Kunde nimmt an,
 lehnt ab oder macht einen Gegenvorschlag (den dann der Handwerker annimmt). Jeder Schritt benachrichtigt die Gegenseite per Mail.
 
 Next.js (App Router, Server Actions) · Drizzle + SQLite/libSQL · Zod · Nodemailer · Vitest.
@@ -50,6 +50,8 @@ Das Postfach zeigt die letzten 50 Mails und leert sich bei jedem Neustart der Ap
 | `src/auth.ts` / `src/app/login/route.ts` | Session-Cookie und Link-Einlösung – die einzigen Stellen mit Next-spezifischem Auth-Code. |
 | `src/*.test.ts` | Tests gegen echte In-Memory-SQLite + Mail-Postfach (`src/test-ctx.ts`) – keine Mocks. |
 | `e2e/*.e2e.ts` | Browser-Smoke-Test; scheitert auch bei jedem Fehler in der Browser-Konsole. |
+| `src/app/image-picker.tsx` | Einzige Client-Komponente: verkleinert Fotos vor dem Upload im Browser auf max. 1600 px. |
+| `src/app/bild/[id]/route.ts` | Liefert Fotos aus (in der DB gespeichert) – nur an Kunde und Handwerker der Anfrage. |
 | `src/app/**` | Dünne UI: eine Seite, Server Actions rufen nur die Fachlogik auf. |
 
 Designentscheidungen:

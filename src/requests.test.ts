@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it } from "vitest";
 import type { Ctx } from "./context";
 import { users } from "./db/schema";
 import { eq } from "drizzle-orm";
-import { chooseOption, createRequest, listRequests, proposeOption, rateUrgency, rejectOptions, statusOf, type User } from "./requests";
+import { chooseOption, createRequest, listRequests, loadImage, proposeOption, rateUrgency, rejectOptions, statusOf, type User } from "./requests";
 import { testCtx } from "./test-ctx";
 import { standingOf } from "./urgency";
 
@@ -205,5 +205,38 @@ describe("Gleichzeitige Aktionen bleiben konsistent", () => {
     await Promise.allSettled([chooseOption(ctx, kunde, o.id), rejectOptions(ctx, kunde, r.id)]);
     const [after] = await listRequests(ctx, kunde);
     expect(after.chosenOptionId && after.options.find((x) => x.id === after.chosenOptionId)?.rejected).toBeFalsy();
+  });
+});
+
+describe("Fotos", () => {
+  const png = (bytes = 10, type = "image/png") => new File([new Uint8Array(bytes)], "foto.png", { type });
+  const mitFotos = (files: unknown) =>
+    createRequest(ctx, kunde, { craftsmanId: handwerker.id, description: "Riss in der Wand", urgency: "normal" }, files);
+
+  it("werden mit der Anfrage gespeichert und nur den Beteiligten ausgeliefert", async () => {
+    await mitFotos([png(), png(20)]);
+    const [r] = await listRequests(ctx, handwerker);
+    expect(r.images).toHaveLength(2);
+    const img = await loadImage(ctx, handwerker, r.images[1].id);
+    expect(img).toMatchObject({ mime: "image/png" });
+    expect(img.data.length).toBe(20);
+    await expect(loadImage(ctx, kunde, r.images[0].id)).resolves.toBeDefined();
+    await expect(loadImage(ctx, andererKunde, r.images[0].id)).rejects.toThrow("Nicht erlaubt");
+    await expect(loadImage(ctx, andererHandwerker, r.images[0].id)).rejects.toThrow("Nicht erlaubt");
+    await expect(loadImage(ctx, kunde, 999)).rejects.toThrow("Nicht erlaubt");
+  });
+
+  it("Regeln: max. 5, max. 10 MB, nur Bildformate (kein SVG) – sonst entsteht gar keine Anfrage", async () => {
+    await expect(mitFotos(Array.from({ length: 6 }, () => png()))).rejects.toThrow("Höchstens 5 Bilder");
+    await expect(mitFotos([png(10_000_001)])).rejects.toThrow("max. 10 MB");
+    await expect(mitFotos([png(10, "image/svg+xml")])).rejects.toThrow("Nur JPEG");
+    await expect(mitFotos([png(10, "text/html")])).rejects.toThrow("Nur JPEG");
+    expect(await listRequests(ctx, kunde)).toHaveLength(0);
+  });
+
+  it("ohne Fotos geht es weiterhin", async () => {
+    expect((await listRequests(ctx, kunde, 1)).length).toBe(0);
+    await mitFotos([]);
+    expect((await listRequests(ctx, kunde))[0].images).toEqual([]);
   });
 });

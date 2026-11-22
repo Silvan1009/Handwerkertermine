@@ -45,7 +45,8 @@ export async function logoutAction() {
 }
 
 export async function createRequestAction(form: FormData) {
-  await asUser((u) => createRequest(ctx, u, Object.fromEntries(form)));
+  const photos = form.getAll("images").filter((f) => f instanceof File && f.size > 0); // leeres Dateifeld ignorieren
+  await asUser((u) => createRequest(ctx, u, Object.fromEntries(form), photos));
 }
 
 export async function proposeAction(form: FormData) {

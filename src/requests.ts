@@ -2,7 +2,7 @@ import { and, desc, eq, exists, isNotNull, isNull, ne, notExists } from "drizzle
 import { z } from "zod";
 import type { Ctx } from "./context";
 import type { Db } from "./db";
-import { CATEGORIES, RATINGS, options, requests, users } from "./db/schema";
+import { CATEGORIES, RATINGS, images, options, requests, users } from "./db/schema";
 import { CATEGORY_LABELS } from "./availability";
 import { RESTRICTED, standingOf } from "./urgency";
 import { conditionsFor } from "./pricing";
@@ -49,9 +49,15 @@ const RequestInput = z.object({
   urgency: z.enum(CATEGORIES, "Dringlichkeit fehlt"),
 });
 
-export async function createRequest(ctx: Ctx, user: User, input: unknown) {
+const IMAGE_TYPES = ["image/jpeg", "image/png", "image/webp", "image/gif"]; // kein SVG (könnte Skripte enthalten)
+const Images = z
+  .array(z.file().max(10_000_000, "Bild zu groß (max. 10 MB)").mime(IMAGE_TYPES, "Nur JPEG, PNG, WebP oder GIF"))
+  .max(5, "Höchstens 5 Bilder");
+
+export async function createRequest(ctx: Ctx, user: User, input: unknown, files: unknown = []) {
   if (user.role !== "kunde") deny();
   const data = RequestInput.parse(input);
+  const photos = Images.parse(files);
   ctx.limit(`request:${user.id}`, 10, DAY); // Anfragen lösen Mails mit Freitext aus → Spam-Bremse
   const craftsman = await ctx.db.query.users.findFirst({
     where: and(eq(users.id, data.craftsmanId), eq(users.role, "handwerker")),
@@ -64,6 +70,10 @@ export async function createRequest(ctx: Ctx, user: User, input: unknown) {
   });
   const conditions = conditionsFor(craftsman.pricing ?? {}, { urgency: data.urgency, firstCustomer: !earlier });
   const [row] = await ctx.db.insert(requests).values({ ...data, conditions, customerId: user.id }).returning();
+  if (photos.length) {
+    const values = await Promise.all(photos.map(async (f) => ({ requestId: row.id, mime: f.type, data: Buffer.from(await f.arrayBuffer()) })));
+    await ctx.db.insert(images).values(values);
+  }
   const subject = `Neue Anfrage von ${user.name} – ${CATEGORY_LABELS[data.urgency]}`;
   await notifyOther(ctx, { ...row, customer: user, craftsman }, user, subject);
   return row;
@@ -151,11 +161,18 @@ export async function rateUrgency(ctx: Ctx, user: User, requestId: number, ratin
   if (!row) throw new UserError("Bereits bewertet");
 }
 
+/** Ein Foto – nur für Kunde und Handwerker der Anfrage. */
+export async function loadImage(ctx: Ctx, user: User, id: number) {
+  const img = await ctx.db.query.images.findFirst({ where: eq(images.id, id), with: { request: true } });
+  if (!img || (img.request.customerId !== user.id && img.request.craftsmanId !== user.id)) deny();
+  return img;
+}
+
 /** Die neuesten `limit` Anfragen des Users. */
 export function listRequests(ctx: Ctx, user: User, limit = 50) {
   return ctx.db.query.requests.findMany({
     where: eq(user.role === "kunde" ? requests.customerId : requests.craftsmanId, user.id),
-    with: { customer: true, craftsman: true, options: { orderBy: options.start } },
+    with: { customer: true, craftsman: true, options: { orderBy: options.start }, images: { columns: { id: true } } },
     orderBy: desc(requests.id),
     limit,
   });

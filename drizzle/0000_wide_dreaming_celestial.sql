@@ -1,3 +1,12 @@
+CREATE TABLE `images` (
+	`id` integer PRIMARY KEY NOT NULL,
+	`requestId` integer NOT NULL,
+	`mime` text NOT NULL,
+	`data` blob NOT NULL,
+	FOREIGN KEY (`requestId`) REFERENCES `requests`(`id`) ON UPDATE no action ON DELETE no action
+);
+--> statement-breakpoint
+CREATE INDEX `images_request` ON `images` (`requestId`);--> statement-breakpoint
 CREATE TABLE `options` (
 	`id` integer PRIMARY KEY NOT NULL,
 	`requestId` integer NOT NULL,

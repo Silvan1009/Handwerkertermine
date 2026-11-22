@@ -5,5 +5,6 @@ const codespaces = "*.app.github.dev";
 
 export default {
   allowedDevOrigins: [codespaces],
-  experimental: { serverActions: { allowedOrigins: [codespaces] } },
+  // bodySizeLimit: bis zu 5 Fotos à 10 MB (der Browser verkleinert sie normalerweise vorher auf ~300 KB)
+  experimental: { serverActions: { allowedOrigins: [codespaces], bodySizeLimit: "55mb" } },
 } satisfies NextConfig;

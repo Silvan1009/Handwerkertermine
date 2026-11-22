@@ -9,6 +9,7 @@ import { formatLocal as time } from "../time";
 import { devMailboxEnabled } from "../mail";
 import { KIND_LABELS, PRICE_KINDS, formatConditions, type Condition } from "../pricing";
 import * as a from "./actions";
+import { ImagePicker } from "./image-picker";
 
 export const dynamic = "force-dynamic";
 
@@ -118,6 +119,8 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ f
           </div>
           <textarea name="description" placeholder="Was ist zu tun?" required />
           <br />
+          📷 Fotos (optional, max. 5): <ImagePicker />
+          <br />
           Wie dringend ist es wirklich?{" "}
           <select name="urgency" defaultValue={urgency ?? ""} required>
             <option value="" disabled>bitte wählen</option>
@@ -184,6 +187,15 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ f
             {r.urgencyRating && <> · Einschätzung bewertet: {RATING_LABELS[r.urgencyRating]}</>}
             {!isKunde && <><br /><small>Kunde bisher: {standingText(r.customerId)}</small></>}
             <p>{r.description}</p>
+            {r.images.length > 0 && (
+              <p>
+                {r.images.map((img) => (
+                  <a key={img.id} href={`/bild/${img.id}`}>
+                    <img src={`/bild/${img.id}`} alt="Foto zur Anfrage" style={{ width: 96, height: 96, objectFit: "cover", marginRight: 4 }} />
+                  </a>
+                ))}
+              </p>
+            )}
             <Conditions conditions={r.conditions} />
             <ul>
               {r.options.map((o) => (

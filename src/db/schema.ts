@@ -1,5 +1,5 @@
 import { relations } from "drizzle-orm";
-import { index, integer, sqliteTable, text } from "drizzle-orm/sqlite-core";
+import { blob, index, integer, sqliteTable, text } from "drizzle-orm/sqlite-core";
 import type { Condition, Pricing } from "../pricing";
 
 export const LEVELS = ["frei", "eingeschraenkt", "ausgebucht"] as const;
@@ -59,10 +59,27 @@ export const options = sqliteTable(
   (t) => [index("options_request").on(t.requestId)],
 );
 
+/** Fotos zur Anfrage – direkt in der DB, kein Dateispeicher nötig. */
+export const images = sqliteTable(
+  "images",
+  {
+    id: integer().primaryKey(),
+    requestId: integer().notNull().references(() => requests.id),
+    mime: text().notNull(),
+    data: blob({ mode: "buffer" }).notNull(),
+  },
+  (t) => [index("images_request").on(t.requestId)],
+);
+
 export const requestsRelations = relations(requests, ({ one, many }) => ({
   customer: one(users, { fields: [requests.customerId], references: [users.id] }),
   craftsman: one(users, { fields: [requests.craftsmanId], references: [users.id] }),
   options: many(options),
+  images: many(images),
+}));
+
+export const imagesRelations = relations(images, ({ one }) => ({
+  request: one(requests, { fields: [images.requestId], references: [requests.id] }),
 }));
 
 export const optionsRelations = relations(options, ({ one }) => ({
