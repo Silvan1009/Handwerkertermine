@@ -32,11 +32,11 @@ export const requests = sqliteTable(
     customerId: integer().notNull().references(() => users.id),
     craftsmanId: integer().notNull().references(() => users.id),
     description: text().notNull(),
-    urgency: text({ enum: CATEGORIES }).notNull().default("normal"), // Selbsteinschätzung des Kunden
+    urgency: text({ enum: CATEGORIES }).notNull(), // Selbsteinschätzung des Kunden
     urgencyRating: text({ enum: RATINGS }), // Bewertung der Selbsteinschätzung durch den Handwerker
     ratedAt: integer({ mode: "timestamp" }),
     // Bei Buchung geltende Rabatte und Aufschläge, als Snapshot – spätere Regeländerungen ändern sie nicht
-    conditions: text({ mode: "json" }).$type<Condition[]>().notNull().default([]),
+    conditions: text({ mode: "json" }).$type<Condition[]>().notNull(),
     // Status wird abgeleitet (siehe statusOf) – keine separate Statusspalte, die auseinanderlaufen kann.
     chosenOptionId: integer(),
   },

@@ -1,7 +1,7 @@
 {
   "version": "6",
   "dialect": "sqlite",
-  "id": "8651a825-28d5-41a2-b2b8-01045ba9d0b7",
+  "id": "412197ec-d8eb-4c49-90d7-6f71802d9274",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "tables": {
     "options": {
@@ -58,7 +58,15 @@
           "default": false
         }
       },
-      "indexes": {},
+      "indexes": {
+        "options_request": {
+          "name": "options_request",
+          "columns": [
+            "requestId"
+          ],
+          "isUnique": false
+        }
+      },
       "foreignKeys": {
         "options_requestId_requests_id_fk": {
           "name": "options_requestId_requests_id_fk",
@@ -122,6 +130,34 @@
           "notNull": true,
           "autoincrement": false
         },
+        "urgency": {
+          "name": "urgency",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "urgencyRating": {
+          "name": "urgencyRating",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "ratedAt": {
+          "name": "ratedAt",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "conditions": {
+          "name": "conditions",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
         "chosenOptionId": {
           "name": "chosenOptionId",
           "type": "integer",
@@ -130,7 +166,22 @@
           "autoincrement": false
         }
       },
-      "indexes": {},
+      "indexes": {
+        "requests_customer": {
+          "name": "requests_customer",
+          "columns": [
+            "customerId"
+          ],
+          "isUnique": false
+        },
+        "requests_craftsman": {
+          "name": "requests_craftsman",
+          "columns": [
+            "craftsmanId"
+          ],
+          "isUnique": false
+        }
+      },
       "foreignKeys": {
         "requests_customerId_users_id_fk": {
           "name": "requests_customerId_users_id_fk",
@@ -200,6 +251,49 @@
           "primaryKey": false,
           "notNull": false,
           "autoincrement": false
+        },
+        "notfall": {
+          "name": "notfall",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "kurzfristig": {
+          "name": "kurzfristig",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "normal": {
+          "name": "normal",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "spaet": {
+          "name": "spaet",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "pricing": {
+          "name": "pricing",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "sessionVersion": {
+          "name": "sessionVersion",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": 0
         }
       },
       "indexes": {

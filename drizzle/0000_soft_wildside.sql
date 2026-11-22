@@ -10,22 +10,35 @@ CREATE TABLE `options` (
 	FOREIGN KEY (`proposedById`) REFERENCES `users`(`id`) ON UPDATE no action ON DELETE no action
 );
 --> statement-breakpoint
+CREATE INDEX `options_request` ON `options` (`requestId`);--> statement-breakpoint
 CREATE TABLE `requests` (
 	`id` integer PRIMARY KEY NOT NULL,
 	`customerId` integer NOT NULL,
 	`craftsmanId` integer NOT NULL,
 	`description` text NOT NULL,
+	`urgency` text NOT NULL,
+	`urgencyRating` text,
+	`ratedAt` integer,
+	`conditions` text NOT NULL,
 	`chosenOptionId` integer,
 	FOREIGN KEY (`customerId`) REFERENCES `users`(`id`) ON UPDATE no action ON DELETE no action,
 	FOREIGN KEY (`craftsmanId`) REFERENCES `users`(`id`) ON UPDATE no action ON DELETE no action
 );
 --> statement-breakpoint
+CREATE INDEX `requests_customer` ON `requests` (`customerId`);--> statement-breakpoint
+CREATE INDEX `requests_craftsman` ON `requests` (`craftsmanId`);--> statement-breakpoint
 CREATE TABLE `users` (
 	`id` integer PRIMARY KEY NOT NULL,
 	`name` text NOT NULL,
 	`email` text NOT NULL,
 	`role` text NOT NULL,
-	`trade` text
+	`trade` text,
+	`notfall` text,
+	`kurzfristig` text,
+	`normal` text,
+	`spaet` text,
+	`pricing` text,
+	`sessionVersion` integer DEFAULT 0 NOT NULL
 );
 --> statement-breakpoint
 CREATE UNIQUE INDEX `users_email_unique` ON `users` (`email`);

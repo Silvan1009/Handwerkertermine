@@ -5,50 +5,8 @@
     {
       "idx": 0,
       "version": "6",
-      "when": 1795378657198,
-      "tag": "0000_many_bill_hollister",
-      "breakpoints": true
-    },
-    {
-      "idx": 1,
-      "version": "6",
-      "when": 1795379039912,
-      "tag": "0001_nosy_rocket_raccoon",
-      "breakpoints": true
-    },
-    {
-      "idx": 2,
-      "version": "6",
-      "when": 1795379510745,
-      "tag": "0002_robust_vector",
-      "breakpoints": true
-    },
-    {
-      "idx": 3,
-      "version": "6",
-      "when": 1795380000728,
-      "tag": "0003_slimy_norrin_radd",
-      "breakpoints": true
-    },
-    {
-      "idx": 4,
-      "version": "6",
-      "when": 1795380249487,
-      "tag": "0004_large_spectrum",
-      "breakpoints": true
-    },
-    {
-      "idx": 5,
-      "version": "6",
-      "when": 1795380250126,
-      "tag": "0005_sloppy_speed_demon",
-      "breakpoints": true
-    },
-    {
-      "idx": 6,
-      "version": "6",
-      "when": 1795381041430,
-      "tag": "0006_clever_pixie",
+      "when": 1795381627272,
+      "tag": "0000_soft_wildside",
       "breakpoints": true
     }
   ]

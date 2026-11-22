@@ -7,7 +7,7 @@ Next.js (App Router, Server Actions) · Drizzle + SQLite/libSQL · Zod · Nodema
 
 ```bash
 npm i
-npm run db:migrate && npm run db:seed
+npm run db:reset # Migration aus dem Schema erzeugen, DB neu anlegen, Testdaten einspielen
 npm run dev      # http://localhost:3000
 npm test         # Unit-Tests (Vitest, < 2 s)
 npm run e2e      # Smoke-Test im echten Browser (Playwright, startet die App selbst)
@@ -64,10 +64,10 @@ Handwerker hinterlegen im Inserat Regeln – je Dringlichkeit (Aufschlag oder Ra
 - Kunde und Handwerker sehen sie nur in der jeweiligen Buchung
 - **Erstkunde** = noch kein bestätigter Auftrag dieses Kunden bei diesem Handwerker zum Zeitpunkt der Anfrage
 
-Schema ändern: `src/db/schema.ts` anpassen → `npm run db:generate` → `npm run db:migrate`.
+Schema ändern: `src/db/schema.ts` anpassen → `npm run db:reset`. Die App ist nicht produktiv: Es gibt genau eine
+Migration, die bei jeder Schemaänderung komplett neu erzeugt wird – keine Rücksicht auf Bestandsdaten.
 
-## Bewusste Vereinfachungen
+## Noch nicht umgesetzt
 
-- Ratelimit ist In-Memory pro Instanz und nicht pro IP – bei mehreren Instanzen auf Redis o. Ä. umstellen, zusätzlich IP-Limits im Reverse Proxy.
 - Listen sind begrenzt (50 Anfragen, 100 Handwerker), es gibt noch kein Blättern.
 - Keine Profilbearbeitung, keine Suche/Filter nach Gewerk oder Ort.

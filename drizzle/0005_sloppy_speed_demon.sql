@@ -1,1 +1,0 @@
-ALTER TABLE `requests` ADD `conditions` text DEFAULT '[]' NOT NULL;
