@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import type { Ctx } from "./context";
 import { users } from "./db/schema";
-import { chooseOption, createRequest, listRequests, proposeOption, rejectOptions, statusOf, type User } from "./requests";
+import { chooseOption, createRequest, listRequests, proposeOption, rateUrgency, rejectOptions, statusOf, type User } from "./requests";
 import { testCtx } from "./test-ctx";
 
 const now = new Date(2030, 0, 1);
@@ -25,7 +25,8 @@ beforeEach(async () => {
     .returning();
 });
 
-const anfrage = () => createRequest(ctx, kunde, { craftsmanId: handwerker.id, description: "Wasserhahn tropft" });
+const anfrage = (urgency = "normal") =>
+  createRequest(ctx, kunde, { craftsmanId: handwerker.id, description: "Wasserhahn tropft", urgency });
 const status = async () => statusOf((await listRequests(ctx, kunde))[0]);
 const mailTo = () => mails.map((m) => `${m.to}: ${m.subject}`);
 
@@ -40,7 +41,7 @@ it("Ablauf: Anfrage → Vorschläge → Auswahl, jeweils mit Mail an die Gegense
   await chooseOption(ctx, kunde, a.id);
   expect(await status()).toBe("bestätigt");
   expect(mailTo()).toEqual([
-    "h1@x.de: Neue Anfrage von K1",
+    "h1@x.de: Neue Anfrage von K1 – Normal (4–10 Tage)",
     "k1@x.de: Neuer Terminvorschlag von H1",
     "k1@x.de: Neuer Terminvorschlag von H1",
     "h1@x.de: Termin bestätigt von K1",
@@ -76,8 +77,8 @@ it("Mailfehler kippt die Aktion nicht", async () => {
 
 describe("Berechtigungen", () => {
   it("nur Kunden fragen an, nur bei Handwerkern", async () => {
-    await expect(createRequest(ctx, handwerker, { craftsmanId: handwerker.id, description: "x" })).rejects.toThrow("Nicht erlaubt");
-    await expect(createRequest(ctx, kunde, { craftsmanId: andererKunde.id, description: "x" })).rejects.toThrow("unbekannt");
+    await expect(createRequest(ctx, handwerker, { craftsmanId: handwerker.id, description: "x", urgency: "normal" })).rejects.toThrow("Nicht erlaubt");
+    await expect(createRequest(ctx, kunde, { craftsmanId: andererKunde.id, description: "x", urgency: "normal" })).rejects.toThrow("unbekannt");
   });
   it("Unbeteiligte können weder vorschlagen, wählen noch ablehnen", async () => {
     const r = await anfrage();
@@ -107,5 +108,38 @@ describe("Regeln", () => {
     await expect(chooseOption(ctx, kunde, b.id)).rejects.toThrow("bereits");
     await expect(proposeOption(ctx, handwerker, opt(r.id, 15), now)).rejects.toThrow("bereits bestätigt");
     await expect(rejectOptions(ctx, kunde, r.id)).rejects.toThrow("bereits bestätigt");
+  });
+});
+
+describe("Dringlichkeit & Bewertung", () => {
+  const bestaetigt = async (urgency = "normal") => {
+    const r = await anfrage(urgency);
+    const o = await proposeOption(ctx, handwerker, opt(r.id, 8), now);
+    await chooseOption(ctx, kunde, o.id);
+    return r;
+  };
+
+  it("Dringlichkeit ist Pflicht", async () => {
+    await expect(createRequest(ctx, kunde, { craftsmanId: handwerker.id, description: "x" })).rejects.toThrow("Dringlichkeit");
+  });
+
+  it("nur der Handwerker bewertet, erst nach Bestätigung, nur einmal", async () => {
+    const offen = await anfrage();
+    await expect(rateUrgency(ctx, handwerker, offen.id, "gut")).rejects.toThrow("nach Bestätigung");
+    const r = await bestaetigt();
+    await expect(rateUrgency(ctx, kunde, r.id, "gut")).rejects.toThrow("Nicht erlaubt");
+    await expect(rateUrgency(ctx, andererHandwerker, r.id, "gut")).rejects.toThrow("Nicht erlaubt");
+    await expect(rateUrgency(ctx, handwerker, r.id, "super")).rejects.toThrow();
+    await rateUrgency(ctx, handwerker, r.id, "gut");
+    await expect(rateUrgency(ctx, handwerker, r.id, "katastrophe")).rejects.toThrow("Bereits bewertet");
+  });
+
+  it("nach einer Katastrophe: Notfall gesperrt, normal erlaubt, zwei 👍 heben die Sperre auf", async () => {
+    await rateUrgency(ctx, handwerker, (await bestaetigt("notfall")).id, "katastrophe");
+    await expect(anfrage("notfall")).rejects.toThrow("gesperrt");
+    await expect(anfrage("kurzfristig")).rejects.toThrow("gesperrt");
+    await rateUrgency(ctx, handwerker, (await bestaetigt("normal")).id, "gut");
+    await rateUrgency(ctx, handwerker, (await bestaetigt("spaet")).id, "gut");
+    await expect(anfrage("notfall")).resolves.toBeDefined();
   });
 });

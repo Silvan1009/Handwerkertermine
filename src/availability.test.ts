@@ -1,5 +1,5 @@
 import { beforeEach, expect, it } from "vitest";
-import { setAvailability } from "./availability";
+import { findCraftsmen, setAvailability } from "./availability";
 import type { Ctx } from "./context";
 import { users } from "./db/schema";
 import type { User } from "./requests";
@@ -29,4 +29,17 @@ it("Handwerker setzt Verfügbarkeit, leer = keine Angabe", async () => {
 it("nur Handwerker, nur gültige Stufen", async () => {
   await expect(setAvailability(ctx, kunde, input)).rejects.toThrow("Nicht erlaubt");
   await expect(setAvailability(ctx, handwerker, { ...input, notfall: "vielleicht" })).rejects.toThrow();
+});
+
+it("Suche nach Dringlichkeit: nur frei/eingeschränkt, frei zuerst", async () => {
+  const [a, b] = await ctx.db
+    .insert(users)
+    .values([
+      { name: "A", email: "a@x.de", role: "handwerker", notfall: "eingeschraenkt" },
+      { name: "B", email: "b@x.de", role: "handwerker", notfall: "frei" },
+      { name: "C", email: "c@x.de", role: "handwerker", notfall: "ausgebucht" },
+    ])
+    .returning();
+  expect((await findCraftsmen(ctx, "notfall")).map((c) => c.id)).toEqual([b.id, a.id]);
+  expect(await findCraftsmen(ctx)).toHaveLength(4); // ohne Filter alle (inkl. H ohne Angabe)
 });

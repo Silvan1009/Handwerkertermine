@@ -2,7 +2,9 @@ import { and, desc, eq, isNull, ne } from "drizzle-orm";
 import { z } from "zod";
 import type { Ctx } from "./context";
 import type { Db } from "./db";
-import { options, requests, users } from "./db/schema";
+import { CATEGORIES, RATINGS, options, requests, users } from "./db/schema";
+import { CATEGORY_LABELS } from "./availability";
+import { RESTRICTED, standingOf } from "./urgency";
 
 export type User = typeof users.$inferSelect;
 type Parties = { customerId: number; craftsmanId: number; customer: User; craftsman: User; description: string };
@@ -40,6 +42,7 @@ export function statusOf(r: { chosenOptionId: number | null; options: { rejected
 const RequestInput = z.object({
   craftsmanId: z.coerce.number().int(),
   description: z.string().trim().min(1, "Beschreibung fehlt"),
+  urgency: z.enum(CATEGORIES, "Dringlichkeit fehlt"),
 });
 
 export async function createRequest(ctx: Ctx, user: User, input: unknown) {
@@ -49,8 +52,11 @@ export async function createRequest(ctx: Ctx, user: User, input: unknown) {
     where: and(eq(users.id, data.craftsmanId), eq(users.role, "handwerker")),
   });
   if (!craftsman) throw new Error("Handwerker unbekannt");
+  if (RESTRICTED.includes(data.urgency) && (await standingOf(ctx, user.id)).locked)
+    throw new Error("Wegen zu vieler unpassender Dringlichkeitsangaben sind Notfall- und kurzfristige Anfragen vorübergehend gesperrt");
   const [row] = await ctx.db.insert(requests).values({ ...data, customerId: user.id }).returning();
-  await notifyOther(ctx, { ...row, customer: user, craftsman }, user, `Neue Anfrage von ${user.name}`);
+  const subject = `Neue Anfrage von ${user.name} – ${CATEGORY_LABELS[data.urgency]}`;
+  await notifyOther(ctx, { ...row, customer: user, craftsman }, user, subject);
   return row;
 }
 
@@ -102,6 +108,20 @@ export async function rejectOptions(ctx: Ctx, user: User, requestId: number) {
     .returning();
   if (!rejected.length) throw new Error("Keine offenen Vorschläge");
   await notifyOther(ctx, req, user, `${user.name} hat die Vorschläge abgelehnt`);
+}
+
+/** Handwerker bewertet nach Bestätigung einmalig die Dringlichkeits-Selbsteinschätzung des Kunden. */
+export async function rateUrgency(ctx: Ctx, user: User, requestId: number, rating: unknown) {
+  const r = z.enum(RATINGS).parse(rating);
+  const req = participant(await loadRequest(ctx.db, requestId), user);
+  if (req.craftsmanId !== user.id) deny();
+  if (!req.chosenOptionId) throw new Error("Bewertung erst nach Bestätigung möglich");
+  const [row] = await ctx.db
+    .update(requests)
+    .set({ urgencyRating: r })
+    .where(and(eq(requests.id, req.id), isNull(requests.urgencyRating)))
+    .returning();
+  if (!row) throw new Error("Bereits bewertet");
 }
 
 export function listRequests(ctx: Ctx, user: User) {

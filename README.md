@@ -21,6 +21,7 @@ ohne `SMTP_URL` erscheinen alle Mails samt Login-Link im Terminal von `npm run d
 |---|---|
 | `src/requests.ts` | Fachlogik: Anfragen, Vorschläge, Annehmen, Ablehnen, Berechtigungen, Benachrichtigungen. |
 | `src/availability.ts` | Inserat-Verfügbarkeit je Dringlichkeit (Notfall / 1–3 / 4–10 / ab 11 Tagen): frei, eingeschränkt, ausgebucht. |
+| `src/urgency.ts` | Scoring der Dringlichkeits-Selbsteinschätzung (siehe unten). |
 | `src/accounts.ts` | Registrierung, Login-Link, signierte Tokens (HMAC, stateless). |
 | `src/context.ts` | `Ctx` = alle Abhängigkeiten (DB, Mailer, URL, Secret). Fachlogik bekommt ihn als Parameter. |
 | `src/auth.ts` / `src/app/login/route.ts` | Session-Cookie und Link-Einlösung – die einzigen Stellen mit Next-spezifischem Auth-Code. |
@@ -32,6 +33,17 @@ Designentscheidungen:
 - **Status wird abgeleitet**, nicht gespeichert (`statusOf`).
 - **Login-Links** sind 15 Min. gültig und bis dahin mehrfach nutzbar – damit machen Link-Vorschauen von Mailprogrammen sie nicht kaputt.
 - **Mailfehler** werden geloggt, kippen aber keine bereits gespeicherte Aktion.
+
+### Dringlichkeits-Scoring
+
+Kunden geben bei jeder Anfrage an, wie dringend sie ist. Nach der Bestätigung bewertet der Handwerker diese Einschätzung einmalig mit 👍, 👎 oder ❌ (Katastrophe).
+
+- Startguthaben **3**, je Bewertung 👍 **+1**, 👎 **−2**, ❌ **−5**
+- Es zählen nur die **letzten 10** Bewertungen, eine Sperre ist also immer vorübergehend
+- Score **< 0** → keine Notfall- oder kurzfristigen Anfragen. Normale und spätere Termine bleiben möglich und heben die Sperre mit 👍 wieder auf (nach einem ❌ reichen zwei 👍)
+- Handwerker sehen bei jeder Anfrage die bisherigen Bewertungen des Kunden
+
+Stellschrauben: `RATING_POINTS`, `START`, `WINDOW` in `src/urgency.ts`, Beispiele als Tabelle in `src/urgency.test.ts`.
 
 Schema ändern: `src/db/schema.ts` anpassen → `npm run db:generate` → `npm run db:migrate`.
 

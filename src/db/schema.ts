@@ -3,6 +3,9 @@ import { integer, sqliteTable, text } from "drizzle-orm/sqlite-core";
 
 export const LEVELS = ["frei", "eingeschraenkt", "ausgebucht"] as const;
 export const CATEGORIES = ["notfall", "kurzfristig", "normal", "spaet"] as const;
+export const RATINGS = ["gut", "schlecht", "katastrophe"] as const;
+export type Category = (typeof CATEGORIES)[number];
+export type Rating = (typeof RATINGS)[number];
 const level = () => text({ enum: LEVELS }); // null = keine Angabe
 
 export const users = sqliteTable("users", {
@@ -23,6 +26,8 @@ export const requests = sqliteTable("requests", {
   customerId: integer().notNull().references(() => users.id),
   craftsmanId: integer().notNull().references(() => users.id),
   description: text().notNull(),
+  urgency: text({ enum: CATEGORIES }).notNull().default("normal"), // Selbsteinschätzung des Kunden
+  urgencyRating: text({ enum: RATINGS }), // Bewertung der Selbsteinschätzung durch den Handwerker
   // Status wird abgeleitet (siehe statusOf) – keine separate Statusspalte, die auseinanderlaufen kann.
   chosenOptionId: integer(),
 });

@@ -5,7 +5,7 @@ import { register, sendLoginLink } from "../accounts";
 import { setAvailability } from "../availability";
 import { currentUser, endSession } from "../auth";
 import { ctx } from "../context";
-import { chooseOption, createRequest, proposeOption, rejectOptions, type User } from "../requests";
+import { chooseOption, createRequest, proposeOption, rateUrgency, rejectOptions, type User } from "../requests";
 
 const message = (e: unknown) =>
   e instanceof z.ZodError ? e.issues[0].message : e instanceof Error ? e.message : "Fehler";
@@ -60,4 +60,8 @@ export async function rejectAction(form: FormData) {
 
 export async function availabilityAction(form: FormData) {
   await asUser((u) => setAvailability(ctx, u, Object.fromEntries(form)));
+}
+
+export async function rateAction(form: FormData) {
+  await asUser((u) => rateUrgency(ctx, u, Number(form.get("requestId")), form.get("rating")));
 }

@@ -1,7 +1,7 @@
 import { eq } from "drizzle-orm";
 import { z } from "zod";
 import type { Ctx } from "./context";
-import { LEVELS, users } from "./db/schema";
+import { LEVELS, users, type Category } from "./db/schema";
 import type { User } from "./requests";
 
 export const CATEGORY_LABELS = {
@@ -20,4 +20,12 @@ const AvailabilityInput = z.object({ notfall: Level, kurzfristig: Level, normal:
 export async function setAvailability(ctx: Ctx, user: User, input: unknown) {
   if (user.role !== "handwerker") throw new Error("Nicht erlaubt");
   await ctx.db.update(users).set(AvailabilityInput.parse(input)).where(eq(users.id, user.id));
+}
+
+/** Suche: ohne Dringlichkeit alle Handwerker, sonst nur „frei“ (zuerst) und „eingeschränkt“. */
+export async function findCraftsmen(ctx: Ctx, urgency?: Category) {
+  const all = await ctx.db.select().from(users).where(eq(users.role, "handwerker"));
+  if (!urgency) return all;
+  const rank = (c: User) => ["frei", "eingeschraenkt"].indexOf(c[urgency] ?? "");
+  return all.filter((c) => rank(c) >= 0).sort((a, b) => rank(a) - rank(b));
 }

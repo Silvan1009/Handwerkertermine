@@ -15,6 +15,13 @@
       "when": 1795379039912,
       "tag": "0001_nosy_rocket_raccoon",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1795379510745,
+      "tag": "0002_robust_vector",
+      "breakpoints": true
     }
   ]
 }
