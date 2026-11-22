@@ -52,7 +52,7 @@ Handwerker hinterlegen im Inserat Regeln – je Dringlichkeit (Aufschlag oder Ra
 (nur Rabatte), jeweils in % oder €. Auftragspreise gibt es in der App bewusst nicht; abgerechnet wird außerhalb.
 
 - Bei jeder Buchung werden die geltenden Regeln als **Snapshot** in der Buchung gespeichert (`requests.conditions`)
-- Rabatte erscheinen als **Gutschein** mit Nummer (`HT-<Buchungs-ID>`), Aufschläge als Hinweis
+- Kunde und Handwerker sehen sie nur in der jeweiligen Buchung
 - **Erstkunde** = noch kein bestätigter Auftrag dieses Kunden bei diesem Handwerker zum Zeitpunkt der Anfrage
 
 Schema ändern: `src/db/schema.ts` anpassen → `npm run db:generate` → `npm run db:migrate`.

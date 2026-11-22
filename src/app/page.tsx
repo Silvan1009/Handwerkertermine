@@ -4,7 +4,7 @@ import { CATEGORY_LABELS, LEVEL_LABELS, findCraftsmen } from "../availability";
 import { CATEGORIES, LEVELS, RATINGS, type Category } from "../db/schema";
 import { listRequests, statusOf } from "../requests";
 import { RATING_LABELS, RESTRICTED, standingOf } from "../urgency";
-import { KIND_LABELS, PRICE_KINDS, formatConditions, formatRule, type Condition, type Pricing } from "../pricing";
+import { KIND_LABELS, PRICE_KINDS, formatConditions, type Condition } from "../pricing";
 import * as a from "./actions";
 
 export const dynamic = "force-dynamic";
@@ -12,24 +12,9 @@ export const dynamic = "force-dynamic";
 const time = (d: Date) =>
   d.toLocaleString("de-DE", { weekday: "short", day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" });
 const inline = { display: "inline" };
-const conditions = (p: Pricing | null) =>
-  PRICE_KINDS.filter((k) => p?.[k]).map((k) => `${KIND_LABELS[k]} ${formatRule(p![k]!)}`).join(" · ") || "–";
-/** Rabatte als Gutschein, Aufschläge als Hinweis – Abrechnung erfolgt außerhalb der App. */
-const Conditions = ({ r }: { r: { id: number; conditions: Condition[] } }) => {
-  const discounts = r.conditions.filter((c) => c.rule.value < 0);
-  const surcharges = r.conditions.filter((c) => c.rule.value > 0);
-  return (
-    <>
-      {discounts.length > 0 && (
-        <p style={{ border: "2px dashed #2a2", padding: "0.25rem 0.5rem", display: "inline-block" }}>
-          🎟 Gutschein Nr. HT-{String(r.id).padStart(5, "0")}: {formatConditions(discounts)}
-          <br /><small>Wird vom Handwerker bei der Rechnung abgezogen.</small>
-        </p>
-      )}
-      {surcharges.length > 0 && <p>⚠️ Aufschlag: {formatConditions(surcharges)}</p>}
-    </>
-  );
-};
+/** In der Buchung geltende Rabatte/Aufschläge – Abrechnung erfolgt außerhalb der App. */
+const Conditions = ({ conditions }: { conditions: Condition[] }) =>
+  conditions.length > 0 && <p>💶 Konditionen dieser Buchung: {formatConditions(conditions)}</p>;
 
 export default async function Home({ searchParams }: { searchParams: Promise<{ error?: string; info?: string; dringlichkeit?: string }> }) {
   const user = await currentUser();
@@ -118,7 +103,6 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ e
               <tr>
                 <th /><th align="left">Handwerker</th>
                 {CATEGORIES.map((k) => <th key={k}>{CATEGORY_LABELS[k]}</th>)}
-                <th>Rabatte / Aufschläge</th>
               </tr>
             </thead>
             <tbody>
@@ -127,7 +111,6 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ e
                   <td><input type="radio" name="craftsmanId" value={c.id} id={`c${c.id}`} required /></td>
                   <td><label htmlFor={`c${c.id}`}>{c.name} – {c.trade}</label></td>
                   {CATEGORIES.map((k) => <td key={k}>{c[k] ? LEVEL_LABELS[c[k]] : "–"}</td>)}
-                  <td><small>{conditions(c.pricing)}</small></td>
                 </tr>
               ))}
             </tbody>
@@ -166,8 +149,7 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ e
         <form action={a.pricingAction}>
           <h2>Mein Inserat: Rabatte & Aufschläge</h2>
           <small>
-            Positiv = Aufschlag, negativ = Rabatt, leer = keine Regel. Rabatte erhält der Kunde bei der Buchung als Gutschein,
-            Aufschläge werden in der Buchung vermerkt.
+            Positiv = Aufschlag, negativ = Rabatt, leer = keine Regel. Die geltenden Regeln werden in der Buchung vermerkt.
           </small>
           {PRICE_KINDS.map((k) => {
             const r = user.pricing?.[k];
@@ -201,7 +183,7 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ e
             {r.urgencyRating && <> · Einschätzung bewertet: {RATING_LABELS[r.urgencyRating]}</>}
             {!isKunde && <><br /><small>Kunde bisher: {standingText(r.customerId)}</small></>}
             <p>{r.description}</p>
-            <Conditions r={r} />
+            <Conditions conditions={r.conditions} />
             <ul>
               {r.options.map((o) => (
                 <li key={o.id} style={o.rejected ? { textDecoration: "line-through", opacity: 0.5 } : undefined}>

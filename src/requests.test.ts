@@ -145,7 +145,7 @@ describe("Dringlichkeit & Bewertung", () => {
   });
 });
 
-describe("Konditionen der Buchung (Gutschein/Aufschlag)", () => {
+describe("Konditionen der Buchung", () => {
   beforeEach(async () => {
     await ctx.db
       .update(users)
@@ -154,7 +154,7 @@ describe("Konditionen der Buchung (Gutschein/Aufschlag)", () => {
   });
   const kinds = (r: { conditions: { kind: string }[] }) => r.conditions.map((c) => c.kind);
 
-  it("Erstkunde bekommt Gutschein, nach dem ersten bestätigten Auftrag nicht mehr", async () => {
+  it("Erstkunde bekommt Rabatt, nach dem ersten bestätigten Auftrag nicht mehr", async () => {
     const r1 = await anfrage("notfall");
     expect(kinds(r1)).toEqual(["notfall", "erstkunde"]);
     expect(kinds(await anfrage("normal"))).toEqual(["erstkunde"]); // noch nichts bestätigt
