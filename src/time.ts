@@ -19,5 +19,15 @@ export function parseLocal(s: string) {
   return new Date(asUtc - offsetMin(new Date(guess)) * 60_000);
 }
 
+/** Berliner Kalendertag eines Zeitpunkts als „YYYY-MM-DD“. */
+export const dayKey = (d: Date) => d.toLocaleDateString("sv-SE", { timeZone: TZ });
+
+/** Beginn und Ende (exklusiv) eines Berliner Kalendertags – berücksichtigt 23-/25-Stunden-Tage. */
+export function dayRange(key: string): [Date, Date] {
+  const [y, m, d] = key.split("-").map(Number);
+  const next = new Date(Date.UTC(y, m - 1, d + 1)).toISOString().slice(0, 10);
+  return [parseLocal(`${key}T00:00`), parseLocal(`${next}T00:00`)];
+}
+
 export const formatLocal = (d: Date) =>
   d.toLocaleString("de-DE", { timeZone: TZ, weekday: "short", day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" });

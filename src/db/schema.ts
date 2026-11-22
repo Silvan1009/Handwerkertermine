@@ -23,6 +23,7 @@ export const users = sqliteTable("users", {
   spaet: level(),
   pricing: text({ mode: "json" }).$type<Pricing>(), // Rabatt-/Aufschlagsregeln
   sessionVersion: integer().notNull().default(0), // hochzählen = alle Sitzungen des Users ungültig
+  maxPerDay: integer(), // Handwerker: max. Termine pro Tag (App + extern), null = unbegrenzt
 });
 
 export const requests = sqliteTable(
@@ -39,6 +40,7 @@ export const requests = sqliteTable(
     conditions: text({ mode: "json" }).$type<Condition[]>().notNull(),
     // Status wird abgeleitet (siehe statusOf) – keine separate Statusspalte, die auseinanderlaufen kann.
     chosenOptionId: integer(),
+    cancelledAt: integer({ mode: "timestamp" }), // vom Kunden storniert
   },
   (t) => [index("requests_customer").on(t.customerId), index("requests_craftsman").on(t.craftsmanId)],
 );
@@ -57,6 +59,20 @@ export const options = sqliteTable(
     rejected: integer({ mode: "boolean" }).notNull().default(false),
   },
   (t) => [index("options_request").on(t.requestId)],
+);
+
+/** Kalender des Handwerkers: Termine außerhalb der App und Blocker (ganzer Tag, Tagesabschnitt, einzelne Stunden). */
+export const calendarEntries = sqliteTable(
+  "calendar_entries",
+  {
+    id: integer().primaryKey(),
+    craftsmanId: integer().notNull().references(() => users.id),
+    kind: text({ enum: ["extern", "blocker"] }).notNull(),
+    start: integer({ mode: "timestamp" }).notNull(),
+    end: integer({ mode: "timestamp" }).notNull(),
+    title: text(),
+  },
+  (t) => [index("calendar_craftsman_start").on(t.craftsmanId, t.start)],
 );
 
 /** Fotos zur Anfrage – direkt in der DB, kein Dateispeicher nötig. */

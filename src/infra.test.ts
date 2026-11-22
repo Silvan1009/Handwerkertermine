@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { z } from "zod";
 import { UserError, userMessage } from "./errors";
 import { createLimiter } from "./ratelimit";
-import { formatLocal, parseLocal } from "./time";
+import { dayKey, dayRange, formatLocal, parseLocal } from "./time";
 
 describe("userMessage", () => {
   it("zeigt Fachfehler und Validierungen (deutsch), verschluckt interne Fehler", () => {
@@ -25,6 +25,12 @@ describe("Zeitzone Europe/Berlin – unabhängig vom Server", () => {
   it("Umstellungstage", () => {
     expect(parseLocal("2030-03-31T12:00").toISOString()).toBe("2030-03-31T10:00:00.000Z");
     expect(parseLocal("2030-10-27T12:00").toISOString()).toBe("2030-10-27T11:00:00.000Z");
+  });
+  it("Kalendertage in Berliner Zeit, auch an Umstellungstagen", () => {
+    expect(dayKey(new Date("2030-07-01T22:30:00Z"))).toBe("2030-07-02"); // 00:30 in Berlin
+    const len = (k: string) => (dayRange(k)[1].getTime() - dayRange(k)[0].getTime()) / 3600_000;
+    expect([len("2030-07-01"), len("2030-03-31"), len("2030-10-27")]).toEqual([24, 23, 25]);
+    expect(dayRange("2030-12-31")[1].toISOString()).toBe("2030-12-31T23:00:00.000Z");
   });
   it("Unsinn → ungültiges Datum; Anzeige in Berliner Zeit", () => {
     expect(Number.isNaN(parseLocal("gestern").getTime())).toBe(true);

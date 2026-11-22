@@ -1,9 +1,84 @@
 {
   "version": "6",
   "dialect": "sqlite",
-  "id": "7a1b9f87-90f3-474d-b87a-603738a88ae4",
+  "id": "cc5a371b-6688-4d65-ad7e-062ea0159857",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "tables": {
+    "calendar_entries": {
+      "name": "calendar_entries",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "integer",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "craftsmanId": {
+          "name": "craftsmanId",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "kind": {
+          "name": "kind",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "start": {
+          "name": "start",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "end": {
+          "name": "end",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "title": {
+          "name": "title",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        }
+      },
+      "indexes": {
+        "calendar_craftsman_start": {
+          "name": "calendar_craftsman_start",
+          "columns": [
+            "craftsmanId",
+            "start"
+          ],
+          "isUnique": false
+        }
+      },
+      "foreignKeys": {
+        "calendar_entries_craftsmanId_users_id_fk": {
+          "name": "calendar_entries_craftsmanId_users_id_fk",
+          "tableFrom": "calendar_entries",
+          "tableTo": "users",
+          "columnsFrom": [
+            "craftsmanId"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {}
+    },
     "images": {
       "name": "images",
       "columns": {
@@ -224,6 +299,13 @@
           "primaryKey": false,
           "notNull": false,
           "autoincrement": false
+        },
+        "cancelledAt": {
+          "name": "cancelledAt",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
         }
       },
       "indexes": {
@@ -354,6 +436,13 @@
           "notNull": true,
           "autoincrement": false,
           "default": 0
+        },
+        "maxPerDay": {
+          "name": "maxPerDay",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
         }
       },
       "indexes": {

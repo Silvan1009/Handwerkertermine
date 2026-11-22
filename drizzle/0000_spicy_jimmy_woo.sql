@@ -1,3 +1,14 @@
+CREATE TABLE `calendar_entries` (
+	`id` integer PRIMARY KEY NOT NULL,
+	`craftsmanId` integer NOT NULL,
+	`kind` text NOT NULL,
+	`start` integer NOT NULL,
+	`end` integer NOT NULL,
+	`title` text,
+	FOREIGN KEY (`craftsmanId`) REFERENCES `users`(`id`) ON UPDATE no action ON DELETE no action
+);
+--> statement-breakpoint
+CREATE INDEX `calendar_craftsman_start` ON `calendar_entries` (`craftsmanId`,`start`);--> statement-breakpoint
 CREATE TABLE `images` (
 	`id` integer PRIMARY KEY NOT NULL,
 	`requestId` integer NOT NULL,
@@ -30,6 +41,7 @@ CREATE TABLE `requests` (
 	`ratedAt` integer,
 	`conditions` text NOT NULL,
 	`chosenOptionId` integer,
+	`cancelledAt` integer,
 	FOREIGN KEY (`customerId`) REFERENCES `users`(`id`) ON UPDATE no action ON DELETE no action,
 	FOREIGN KEY (`craftsmanId`) REFERENCES `users`(`id`) ON UPDATE no action ON DELETE no action
 );
@@ -47,7 +59,8 @@ CREATE TABLE `users` (
 	`normal` text,
 	`spaet` text,
 	`pricing` text,
-	`sessionVersion` integer DEFAULT 0 NOT NULL
+	`sessionVersion` integer DEFAULT 0 NOT NULL,
+	`maxPerDay` integer
 );
 --> statement-breakpoint
 CREATE UNIQUE INDEX `users_email_unique` ON `users` (`email`);
