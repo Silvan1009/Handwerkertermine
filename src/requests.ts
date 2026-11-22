@@ -9,6 +9,7 @@ import { conditionsFor } from "./pricing";
 import { UserError } from "./errors";
 import { DAY } from "./ratelimit";
 import { parseLocal } from "./time";
+import { assertBookable } from "./calendar";
 
 export type User = typeof users.$inferSelect;
 type Parties = { customerId: number; craftsmanId: number; customer: User; craftsman: User; description: string };
@@ -20,6 +21,12 @@ function deny(): never {
 /** Wirft, wenn der User nicht an der Anfrage beteiligt ist. */
 function participant<T extends Parties>(req: T | undefined, user: User): T {
   if (!req || (req.customerId !== user.id && req.craftsmanId !== user.id)) deny();
+  return req;
+}
+
+/** Wirft, wenn die Anfrage storniert wurde – danach ist keine Aktion mehr möglich. */
+function active<T extends { cancelledAt: Date | null }>(req: T): T {
+  if (req.cancelledAt) throw new UserError("Anfrage wurde storniert");
   return req;
 }
 
@@ -36,7 +43,8 @@ async function notifyOther(ctx: Ctx, req: Parties, user: User, subject: string) 
   }
 }
 
-export function statusOf(r: { chosenOptionId: number | null; options: { rejected: boolean }[] }) {
+export function statusOf(r: { cancelledAt: Date | null; chosenOptionId: number | null; options: { rejected: boolean }[] }) {
+  if (r.cancelledAt) return "storniert";
   if (r.chosenOptionId) return "bestätigt";
   if (r.options.some((o) => !o.rejected)) return "Vorschläge offen";
   if (r.options.length) return "abgelehnt – neuer Vorschlag nötig";
@@ -95,8 +103,9 @@ const OptionInput = z
 export async function proposeOption(ctx: Ctx, user: User, input: unknown, now = new Date()) {
   const data = OptionInput.parse(input);
   if (data.start <= now) throw new UserError("Vorschlag liegt in der Vergangenheit");
-  const req = participant(await loadRequest(ctx.db, data.requestId), user);
+  const req = active(participant(await loadRequest(ctx.db, data.requestId), user));
   if (req.chosenOptionId) throw new UserError("Anfrage ist bereits bestätigt");
+  await assertBookable(ctx, req.craftsmanId, data.start, data.end); // Blocker, Überschneidung, Tageskapazität
   const [row] = await ctx.db.insert(options).values({ ...data, proposedById: user.id }).returning();
   // Wurde die Anfrage zwischen Prüfung und Insert durch einen anderen Vorschlag bestätigt? Dann zurückrollen.
   const after = await loadRequest(ctx.db, req.id);
@@ -111,15 +120,16 @@ export async function proposeOption(ctx: Ctx, user: User, input: unknown, now = 
 export async function chooseOption(ctx: Ctx, user: User, optionId: number) {
   const opt = await ctx.db.query.options.findFirst({ where: eq(options.id, optionId) });
   if (!opt) deny();
-  const req = participant(await loadRequest(ctx.db, opt.requestId), user);
+  const req = active(participant(await loadRequest(ctx.db, opt.requestId), user));
   if (opt.proposedById === user.id) throw new UserError("Eigene Vorschläge kann nur die Gegenseite annehmen");
   if (opt.rejected) throw new UserError("Vorschlag wurde abgelehnt");
+  await assertBookable(ctx, req.craftsmanId, opt.start, opt.end); // Kalender kann sich seit dem Vorschlag geändert haben
   // Bedingtes Update = atomar, auch bei Doppelklick oder gleichzeitigem Ablehnen.
   const stillOpen = ctx.db.select().from(options).where(and(eq(options.id, opt.id), eq(options.rejected, false)));
   const [row] = await ctx.db
     .update(requests)
     .set({ chosenOptionId: opt.id })
-    .where(and(eq(requests.id, req.id), isNull(requests.chosenOptionId), exists(stillOpen)))
+    .where(and(eq(requests.id, req.id), isNull(requests.chosenOptionId), isNull(requests.cancelledAt), exists(stillOpen)))
     .returning();
   if (!row) throw new UserError("Es wurde bereits ein Vorschlag gewählt");
   await notifyOther(ctx, req, user, `Termin bestätigt von ${user.name}`);
@@ -128,7 +138,7 @@ export async function chooseOption(ctx: Ctx, user: User, optionId: number) {
 
 /** Lehnt alle offenen Vorschläge der Gegenseite ab. */
 export async function rejectOptions(ctx: Ctx, user: User, requestId: number) {
-  const req = participant(await loadRequest(ctx.db, requestId), user);
+  const req = active(participant(await loadRequest(ctx.db, requestId), user));
   if (req.chosenOptionId) throw new UserError("Anfrage ist bereits bestätigt");
   const rejected = await ctx.db
     .update(options)
@@ -150,7 +160,7 @@ export async function rejectOptions(ctx: Ctx, user: User, requestId: number) {
 /** Handwerker bewertet nach Bestätigung einmalig die Dringlichkeits-Selbsteinschätzung des Kunden. */
 export async function rateUrgency(ctx: Ctx, user: User, requestId: number, rating: unknown) {
   const r = z.enum(RATINGS).parse(rating);
-  const req = participant(await loadRequest(ctx.db, requestId), user);
+  const req = active(participant(await loadRequest(ctx.db, requestId), user));
   if (req.craftsmanId !== user.id) deny();
   if (!req.chosenOptionId) throw new UserError("Bewertung erst nach Bestätigung möglich");
   const [row] = await ctx.db
@@ -159,6 +169,41 @@ export async function rateUrgency(ctx: Ctx, user: User, requestId: number, ratin
     .where(and(eq(requests.id, req.id), isNull(requests.urgencyRating)))
     .returning();
   if (!row) throw new UserError("Bereits bewertet");
+}
+
+/** Darf der Kunde stornieren? Unbestätigt jederzeit, bestätigt nur bis 24 h vor Beginn des gewählten Vorschlags. */
+export function canCancel(
+  r: { cancelledAt: Date | null; chosenOptionId: number | null; options: { id: number; start: Date }[] },
+  now = new Date(),
+) {
+  if (r.cancelledAt) return false;
+  if (!r.chosenOptionId) return true;
+  const chosen = r.options.find((o) => o.id === r.chosenOptionId);
+  return !!chosen && chosen.start.getTime() - now.getTime() >= DAY;
+}
+
+/** Kunde storniert seine Anfrage (bzw. zieht sie zurück) – Mail an den Handwerker. */
+export async function cancelRequest(ctx: Ctx, user: User, requestId: number, now = new Date()) {
+  const req = participant(await loadRequest(ctx.db, requestId), user);
+  if (req.customerId !== user.id) deny();
+  if (req.cancelledAt) throw new UserError("Anfrage wurde bereits storniert");
+  const opts = await ctx.db.query.options.findMany({ where: eq(options.requestId, req.id) });
+  if (!canCancel({ ...req, options: opts }, now)) throw new UserError("Stornierung nur bis 24 h vor dem Termin möglich");
+  // Bedingt auf den geprüften Stand: nicht doppelt und nicht, falls inzwischen (kurzfristig) bestätigt wurde.
+  const [row] = await ctx.db
+    .update(requests)
+    .set({ cancelledAt: now })
+    .where(
+      and(
+        eq(requests.id, req.id),
+        isNull(requests.cancelledAt),
+        req.chosenOptionId ? eq(requests.chosenOptionId, req.chosenOptionId) : isNull(requests.chosenOptionId),
+      ),
+    )
+    .returning();
+  if (!row) throw new UserError("Anfrage wurde inzwischen geändert – bitte neu laden");
+  await notifyOther(ctx, req, user, `Anfrage storniert von ${user.name}`);
+  return row;
 }
 
 /** Ein Foto – nur für Kunde und Handwerker der Anfrage. */
