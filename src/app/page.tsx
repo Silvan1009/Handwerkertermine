@@ -4,7 +4,7 @@ import { CATEGORY_LABELS, LEVEL_LABELS, findCraftsmen } from "../availability";
 import { CATEGORIES, LEVELS, RATINGS, type Category } from "../db/schema";
 import { listRequests, statusOf } from "../requests";
 import { RATING_LABELS, RESTRICTED, standingOf } from "../urgency";
-import { KIND_LABELS, PRICE_KINDS, eur, formatRule, type Pricing, type Quote } from "../pricing";
+import { KIND_LABELS, PRICE_KINDS, formatConditions, formatRule, type Condition, type Pricing } from "../pricing";
 import * as a from "./actions";
 
 export const dynamic = "force-dynamic";
@@ -14,12 +14,22 @@ const time = (d: Date) =>
 const inline = { display: "inline" };
 const conditions = (p: Pricing | null) =>
   PRICE_KINDS.filter((k) => p?.[k]).map((k) => `${KIND_LABELS[k]} ${formatRule(p![k]!)}`).join(" · ") || "–";
-const QuoteView = ({ q }: { q: Quote }) => (
-  <p>
-    💶 Grundpreis {eur(q.base)}
-    {q.lines.map((l) => <span key={l.label}> · {l.label}: {l.amount > 0 ? "+" : ""}{eur(l.amount)}</span>)} → <b>{eur(q.total)}</b>
-  </p>
-);
+/** Rabatte als Gutschein, Aufschläge als Hinweis – Abrechnung erfolgt außerhalb der App. */
+const Conditions = ({ r }: { r: { id: number; conditions: Condition[] } }) => {
+  const discounts = r.conditions.filter((c) => c.rule.value < 0);
+  const surcharges = r.conditions.filter((c) => c.rule.value > 0);
+  return (
+    <>
+      {discounts.length > 0 && (
+        <p style={{ border: "2px dashed #2a2", padding: "0.25rem 0.5rem", display: "inline-block" }}>
+          🎟 Gutschein Nr. HT-{String(r.id).padStart(5, "0")}: {formatConditions(discounts)}
+          <br /><small>Wird vom Handwerker bei der Rechnung abgezogen.</small>
+        </p>
+      )}
+      {surcharges.length > 0 && <p>⚠️ Aufschlag: {formatConditions(surcharges)}</p>}
+    </>
+  );
+};
 
 export default async function Home({ searchParams }: { searchParams: Promise<{ error?: string; info?: string; dringlichkeit?: string }> }) {
   const user = await currentUser();
@@ -155,7 +165,10 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ e
       {!isKunde && (
         <form action={a.pricingAction}>
           <h2>Mein Inserat: Rabatte & Aufschläge</h2>
-          <small>Bezogen auf den Grundpreis je Auftrag. Positiv = Aufschlag, negativ = Rabatt, leer = keine Regel.</small>
+          <small>
+            Positiv = Aufschlag, negativ = Rabatt, leer = keine Regel. Rabatte erhält der Kunde bei der Buchung als Gutschein,
+            Aufschläge werden in der Buchung vermerkt.
+          </small>
           {PRICE_KINDS.map((k) => {
             const r = user.pricing?.[k];
             return (
@@ -188,14 +201,7 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ e
             {r.urgencyRating && <> · Einschätzung bewertet: {RATING_LABELS[r.urgencyRating]}</>}
             {!isKunde && <><br /><small>Kunde bisher: {standingText(r.customerId)}</small></>}
             <p>{r.description}</p>
-            {r.quote ? <QuoteView q={r.quote} /> : <p>💶 noch kein Preisangebot</p>}
-            {!isKunde && open && (
-              <form action={a.quoteAction}>
-                <input type="hidden" name="requestId" value={r.id} />
-                Grundpreis €: <input name="basePrice" size={8} required defaultValue={r.quote ? r.quote.base / 100 : ""} />{" "}
-                <button>{r.quote ? "Preis aktualisieren" : "Preis anbieten"}</button>
-              </form>
-            )}
+            <Conditions r={r} />
             <ul>
               {r.options.map((o) => (
                 <li key={o.id} style={o.rejected ? { textDecoration: "line-through", opacity: 0.5 } : undefined}>

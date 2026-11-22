@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { calcQuote, parsePricing, type Pricing } from "./pricing";
+import { conditionsFor, formatConditions, parsePricing, type Pricing } from "./pricing";
 
 const rules: Pricing = {
   notfall: { mode: "prozent", value: 50 },
@@ -8,26 +8,20 @@ const rules: Pricing = {
   erstkunde: { mode: "absolut", value: -2000 },
 };
 
-describe("calcQuote", () => {
-  it("Notfall-Aufschlag + App-Rabatt + Erstkunde, alles bezogen auf den Grundpreis", () => {
-    expect(calcQuote(20000, rules, { urgency: "notfall", firstCustomer: true })).toEqual({
-      base: 20000,
-      lines: [
-        { label: "Notfall +50 %", amount: 10000 },
-        { label: "Buchung über die App -10 %", amount: -2000 },
-        { label: "Erstkunde -20,00 €", amount: -2000 },
-      ],
-      total: 26000,
-    });
+describe("conditionsFor", () => {
+  it("Notfall-Aufschlag + App-Rabatt + Erstkunde", () => {
+    expect(conditionsFor(rules, { urgency: "notfall", firstCustomer: true }).map((c) => c.kind)).toEqual(["notfall", "app", "erstkunde"]);
   });
-  it("Bestandskunde, später Termin: nur Rabatte", () => {
-    expect(calcQuote(20000, rules, { urgency: "spaet", firstCustomer: false }).total).toBe(17000);
+  it("Bestandskunde bekommt keinen Erstkundenrabatt", () => {
+    expect(conditionsFor(rules, { urgency: "spaet", firstCustomer: false }).map((c) => c.kind)).toEqual(["spaet", "app"]);
   });
-  it("Kategorie ohne Regel / keine Regeln = Grundpreis", () => {
-    expect(calcQuote(20000, {}, { urgency: "normal", firstCustomer: true })).toEqual({ base: 20000, lines: [], total: 20000 });
+  it("Kategorie ohne Regel / keine Regeln = nichts", () => {
+    expect(conditionsFor({}, { urgency: "normal", firstCustomer: true })).toEqual([]);
   });
-  it("nie unter 0 €", () => {
-    expect(calcQuote(1000, rules, { urgency: "normal", firstCustomer: true }).total).toBe(0);
+  it("lesbare Darstellung", () => {
+    expect(formatConditions(conditionsFor(rules, { urgency: "notfall", firstCustomer: true }))).toBe(
+      "Notfall +50 % · Buchung über die App -10 % · Erstkunde -20,00 €",
+    );
   });
 });
 

@@ -5,7 +5,7 @@ import type { Db } from "./db";
 import { CATEGORIES, RATINGS, options, requests, users } from "./db/schema";
 import { CATEGORY_LABELS } from "./availability";
 import { RESTRICTED, standingOf } from "./urgency";
-import { calcQuote, eur, parseEuro } from "./pricing";
+import { conditionsFor } from "./pricing";
 
 export type User = typeof users.$inferSelect;
 type Parties = { customerId: number; craftsmanId: number; customer: User; craftsman: User; description: string };
@@ -55,7 +55,11 @@ export async function createRequest(ctx: Ctx, user: User, input: unknown) {
   if (!craftsman) throw new Error("Handwerker unbekannt");
   if (RESTRICTED.includes(data.urgency) && (await standingOf(ctx, user.id)).locked)
     throw new Error("Wegen zu vieler unpassender Dringlichkeitsangaben sind Notfall- und kurzfristige Anfragen vorübergehend gesperrt");
-  const [row] = await ctx.db.insert(requests).values({ ...data, customerId: user.id }).returning();
+  const earlier = await ctx.db.query.requests.findFirst({
+    where: and(eq(requests.customerId, user.id), eq(requests.craftsmanId, craftsman.id), isNotNull(requests.chosenOptionId)),
+  });
+  const conditions = conditionsFor(craftsman.pricing ?? {}, { urgency: data.urgency, firstCustomer: !earlier });
+  const [row] = await ctx.db.insert(requests).values({ ...data, conditions, customerId: user.id }).returning();
   const subject = `Neue Anfrage von ${user.name} – ${CATEGORY_LABELS[data.urgency]}`;
   await notifyOther(ctx, { ...row, customer: user, craftsman }, user, subject);
   return row;
@@ -123,25 +127,6 @@ export async function rateUrgency(ctx: Ctx, user: User, requestId: number, ratin
     .where(and(eq(requests.id, req.id), isNull(requests.urgencyRating)))
     .returning();
   if (!row) throw new Error("Bereits bewertet");
-}
-
-/** Handwerker gibt (vor Bestätigung) einen Grundpreis an; seine Preisregeln werden angewendet. */
-export async function setQuote(ctx: Ctx, user: User, requestId: number, basePrice: unknown) {
-  const req = participant(await loadRequest(ctx.db, requestId), user);
-  if (req.craftsmanId !== user.id) deny();
-  if (req.chosenOptionId) throw new Error("Anfrage ist bereits bestätigt");
-  const earlier = await ctx.db.query.requests.findFirst({
-    where: and(
-      eq(requests.customerId, req.customerId),
-      eq(requests.craftsmanId, req.craftsmanId),
-      isNotNull(requests.chosenOptionId),
-      ne(requests.id, req.id),
-    ),
-  });
-  const quote = calcQuote(parseEuro(basePrice), req.craftsman.pricing ?? {}, { urgency: req.urgency, firstCustomer: !earlier });
-  await ctx.db.update(requests).set({ quote }).where(eq(requests.id, req.id));
-  await notifyOther(ctx, req, user, `Preisangebot von ${user.name}: ${eur(quote.total)}`);
-  return quote;
 }
 
 export function listRequests(ctx: Ctx, user: User) {

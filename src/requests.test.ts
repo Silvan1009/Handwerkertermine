@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it } from "vitest";
 import type { Ctx } from "./context";
 import { users } from "./db/schema";
 import { eq } from "drizzle-orm";
-import { chooseOption, createRequest, listRequests, proposeOption, rateUrgency, rejectOptions, setQuote, statusOf, type User } from "./requests";
+import { chooseOption, createRequest, listRequests, proposeOption, rateUrgency, rejectOptions, statusOf, type User } from "./requests";
 import { testCtx } from "./test-ctx";
 
 const now = new Date(2030, 0, 1);
@@ -145,38 +145,26 @@ describe("Dringlichkeit & Bewertung", () => {
   });
 });
 
-describe("Preisangebot", () => {
+describe("Konditionen der Buchung (Gutschein/Aufschlag)", () => {
   beforeEach(async () => {
     await ctx.db
       .update(users)
       .set({ pricing: { notfall: { mode: "prozent", value: 50 }, erstkunde: { mode: "absolut", value: -2000 } } })
       .where(eq(users.id, handwerker.id));
-    handwerker = (await ctx.db.query.users.findFirst({ where: eq(users.id, handwerker.id) }))!;
   });
+  const kinds = (r: { conditions: { kind: string }[] }) => r.conditions.map((c) => c.kind);
 
-  it("Erstkunde bekommt Rabatt, beim zweiten bestätigten Auftrag nicht mehr", async () => {
+  it("Erstkunde bekommt Gutschein, nach dem ersten bestätigten Auftrag nicht mehr", async () => {
     const r1 = await anfrage("notfall");
-    expect((await setQuote(ctx, handwerker, r1.id, "200")).total).toBe(28000); // 200 + 100 − 20
-    expect(mailTo().at(-1)).toBe("k1@x.de: Preisangebot von H1: 280,00 €");
+    expect(kinds(r1)).toEqual(["notfall", "erstkunde"]);
+    expect(kinds(await anfrage("normal"))).toEqual(["erstkunde"]); // noch nichts bestätigt
     await chooseOption(ctx, kunde, (await proposeOption(ctx, handwerker, opt(r1.id, 8), now)).id);
-
-    const r2 = await anfrage("notfall");
-    expect((await setQuote(ctx, handwerker, r2.id, "200")).total).toBe(30000);
+    expect(kinds(await anfrage("notfall"))).toEqual(["notfall"]);
   });
 
-  it("Angebot ist ein Snapshot: spätere Regeländerung ändert es nicht", async () => {
-    const r = await anfrage("notfall");
-    await setQuote(ctx, handwerker, r.id, "100");
+  it("Snapshot: spätere Regeländerung ändert bestehende Buchungen nicht", async () => {
+    await anfrage("notfall");
     await ctx.db.update(users).set({ pricing: {} }).where(eq(users.id, handwerker.id));
-    expect((await listRequests(ctx, kunde))[0].quote?.total).toBe(13000);
-  });
-
-  it("nur der eigene Handwerker, nur vor Bestätigung, nur gültige Preise", async () => {
-    const r = await anfrage();
-    await expect(setQuote(ctx, kunde, r.id, "100")).rejects.toThrow("Nicht erlaubt");
-    await expect(setQuote(ctx, andererHandwerker, r.id, "100")).rejects.toThrow("Nicht erlaubt");
-    await expect(setQuote(ctx, handwerker, r.id, "-5")).rejects.toThrow("Ungültiger Preis");
-    await chooseOption(ctx, kunde, (await proposeOption(ctx, handwerker, opt(r.id, 8), now)).id);
-    await expect(setQuote(ctx, handwerker, r.id, "100")).rejects.toThrow("bereits bestätigt");
+    expect(kinds((await listRequests(ctx, kunde))[0])).toEqual(["notfall", "erstkunde"]);
   });
 });

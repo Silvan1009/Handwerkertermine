@@ -22,7 +22,7 @@ ohne `SMTP_URL` erscheinen alle Mails samt Login-Link im Terminal von `npm run d
 | `src/requests.ts` | Fachlogik: Anfragen, Vorschläge, Annehmen, Ablehnen, Berechtigungen, Benachrichtigungen. |
 | `src/availability.ts` | Inserat-Verfügbarkeit je Dringlichkeit (Notfall / 1–3 / 4–10 / ab 11 Tagen): frei, eingeschränkt, ausgebucht. |
 | `src/urgency.ts` | Scoring der Dringlichkeits-Selbsteinschätzung (siehe unten). |
-| `src/pricing.ts` | Rabatte/Aufschläge (je Dringlichkeit, App-Buchung, Erstkunde; % oder €) und Preisberechnung. |
+| `src/pricing.ts` | Rabatte/Aufschläge (je Dringlichkeit, App-Buchung, Erstkunde; % oder €) und welche bei einer Buchung gelten. |
 | `src/accounts.ts` | Registrierung, Login-Link, signierte Tokens (HMAC, stateless). |
 | `src/context.ts` | `Ctx` = alle Abhängigkeiten (DB, Mailer, URL, Secret). Fachlogik bekommt ihn als Parameter. |
 | `src/auth.ts` / `src/app/login/route.ts` | Session-Cookie und Link-Einlösung – die einzigen Stellen mit Next-spezifischem Auth-Code. |
@@ -46,14 +46,14 @@ Kunden geben bei jeder Anfrage an, wie dringend sie ist. Nach der Bestätigung b
 
 Stellschrauben: `RATING_POINTS`, `START`, `WINDOW` in `src/urgency.ts`, Beispiele als Tabelle in `src/urgency.test.ts`.
 
-### Preise, Rabatte, Aufschläge
+### Rabatte & Aufschläge (ohne Auftragspreise)
 
 Handwerker hinterlegen im Inserat Regeln – je Dringlichkeit (Aufschlag oder Rabatt), „Buchung über die App“ und „Erstkunde“
-(nur Rabatte), jeweils in % oder €. Pro Anfrage gibt der Handwerker einen Grundpreis an; die passenden Regeln werden angewendet:
+(nur Rabatte), jeweils in % oder €. Auftragspreise gibt es in der App bewusst nicht; abgerechnet wird außerhalb.
 
-- Alle Regeln beziehen sich auf den **Grundpreis** und werden addiert (nicht verkettet), der Preis fällt nie unter 0 €
-- **Erstkunde** = noch kein bestätigter Auftrag dieses Kunden bei diesem Handwerker
-- Das Angebot wird als **Snapshot** gespeichert; spätere Regeländerungen ändern es nicht, nach Bestätigung ist es fix
+- Bei jeder Buchung werden die geltenden Regeln als **Snapshot** in der Buchung gespeichert (`requests.conditions`)
+- Rabatte erscheinen als **Gutschein** mit Nummer (`HT-<Buchungs-ID>`), Aufschläge als Hinweis
+- **Erstkunde** = noch kein bestätigter Auftrag dieses Kunden bei diesem Handwerker zum Zeitpunkt der Anfrage
 
 Schema ändern: `src/db/schema.ts` anpassen → `npm run db:generate` → `npm run db:migrate`.
 

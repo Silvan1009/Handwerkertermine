@@ -1,6 +1,6 @@
 import { relations } from "drizzle-orm";
 import { integer, sqliteTable, text } from "drizzle-orm/sqlite-core";
-import type { Pricing, Quote } from "../pricing";
+import type { Condition, Pricing } from "../pricing";
 
 export const LEVELS = ["frei", "eingeschraenkt", "ausgebucht"] as const;
 export const CATEGORIES = ["notfall", "kurzfristig", "normal", "spaet"] as const;
@@ -30,7 +30,8 @@ export const requests = sqliteTable("requests", {
   description: text().notNull(),
   urgency: text({ enum: CATEGORIES }).notNull().default("normal"), // Selbsteinschätzung des Kunden
   urgencyRating: text({ enum: RATINGS }), // Bewertung der Selbsteinschätzung durch den Handwerker
-  quote: text({ mode: "json" }).$type<Quote>(), // Preisangebot als Snapshot – spätere Regeländerungen ändern es nicht
+  // Bei Buchung geltende Rabatte (= Gutschein) und Aufschläge, als Snapshot – spätere Regeländerungen ändern sie nicht
+  conditions: text({ mode: "json" }).$type<Condition[]>().notNull().default([]),
   // Status wird abgeleitet (siehe statusOf) – keine separate Statusspalte, die auseinanderlaufen kann.
   chosenOptionId: integer(),
 });
