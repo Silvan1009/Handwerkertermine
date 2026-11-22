@@ -1,11 +1,11 @@
 {
   "version": "6",
   "dialect": "sqlite",
-  "id": "94c3ea91-6c5e-4c82-8b34-4c0db08d67f5",
+  "id": "9ea5ee08-ace8-4fd9-8890-336883a8a100",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "tables": {
-    "appointments": {
-      "name": "appointments",
+    "options": {
+      "name": "options",
       "columns": {
         "id": {
           "name": "id",
@@ -14,9 +14,16 @@
           "notNull": true,
           "autoincrement": false
         },
-        "craftsmanId": {
-          "name": "craftsmanId",
+        "requestId": {
+          "name": "requestId",
           "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "kind": {
+          "name": "kind",
+          "type": "text",
           "primaryKey": false,
           "notNull": true,
           "autoincrement": false
@@ -28,36 +35,92 @@
           "notNull": true,
           "autoincrement": false
         },
-        "customerName": {
-          "name": "customerName",
+        "end": {
+          "name": "end",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "options_requestId_requests_id_fk": {
+          "name": "options_requestId_requests_id_fk",
+          "tableFrom": "options",
+          "tableTo": "requests",
+          "columnsFrom": [
+            "requestId"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {}
+    },
+    "requests": {
+      "name": "requests",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "integer",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "customerId": {
+          "name": "customerId",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "craftsmanId": {
+          "name": "craftsmanId",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "description": {
+          "name": "description",
           "type": "text",
           "primaryKey": false,
           "notNull": true,
           "autoincrement": false
         },
-        "customerEmail": {
-          "name": "customerEmail",
-          "type": "text",
+        "chosenOptionId": {
+          "name": "chosenOptionId",
+          "type": "integer",
           "primaryKey": false,
-          "notNull": true,
+          "notNull": false,
           "autoincrement": false
         }
       },
-      "indexes": {
-        "one_booking_per_slot": {
-          "name": "one_booking_per_slot",
-          "columns": [
-            "craftsmanId",
-            "start"
-          ],
-          "isUnique": true
-        }
-      },
+      "indexes": {},
       "foreignKeys": {
-        "appointments_craftsmanId_craftsmen_id_fk": {
-          "name": "appointments_craftsmanId_craftsmen_id_fk",
-          "tableFrom": "appointments",
-          "tableTo": "craftsmen",
+        "requests_customerId_users_id_fk": {
+          "name": "requests_customerId_users_id_fk",
+          "tableFrom": "requests",
+          "tableTo": "users",
+          "columnsFrom": [
+            "customerId"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "requests_craftsmanId_users_id_fk": {
+          "name": "requests_craftsmanId_users_id_fk",
+          "tableFrom": "requests",
+          "tableTo": "users",
           "columnsFrom": [
             "craftsmanId"
           ],
@@ -72,8 +135,8 @@
       "uniqueConstraints": {},
       "checkConstraints": {}
     },
-    "craftsmen": {
-      "name": "craftsmen",
+    "users": {
+      "name": "users",
       "columns": {
         "id": {
           "name": "id",
@@ -89,11 +152,18 @@
           "notNull": true,
           "autoincrement": false
         },
+        "role": {
+          "name": "role",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
         "trade": {
           "name": "trade",
           "type": "text",
           "primaryKey": false,
-          "notNull": true,
+          "notNull": false,
           "autoincrement": false
         }
       },

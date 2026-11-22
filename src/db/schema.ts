@@ -1,20 +1,37 @@
-import { integer, sqliteTable, text, uniqueIndex } from "drizzle-orm/sqlite-core";
+import { relations } from "drizzle-orm";
+import { integer, sqliteTable, text } from "drizzle-orm/sqlite-core";
 
-export const craftsmen = sqliteTable("craftsmen", {
+export const users = sqliteTable("users", {
   id: integer().primaryKey(),
   name: text().notNull(),
-  trade: text().notNull(),
+  role: text({ enum: ["kunde", "handwerker"] }).notNull(),
+  trade: text(),
 });
 
-export const appointments = sqliteTable(
-  "appointments",
-  {
-    id: integer().primaryKey(),
-    craftsmanId: integer().notNull().references(() => craftsmen.id),
-    start: integer({ mode: "timestamp" }).notNull(),
-    customerName: text().notNull(),
-    customerEmail: text().notNull(),
-  },
-  // Doppelbuchungen verhindert die DB – kein Race Condition-Code nötig.
-  (t) => [uniqueIndex("one_booking_per_slot").on(t.craftsmanId, t.start)],
-);
+export const requests = sqliteTable("requests", {
+  id: integer().primaryKey(),
+  customerId: integer().notNull().references(() => users.id),
+  craftsmanId: integer().notNull().references(() => users.id),
+  description: text().notNull(),
+  // Status wird abgeleitet (siehe statusOf) – keine separate Statusspalte, die auseinanderlaufen kann.
+  chosenOptionId: integer(),
+});
+
+/** Vorschlag des Handwerkers: fester Termin oder Zeitfenster – beides ist start..end. */
+export const options = sqliteTable("options", {
+  id: integer().primaryKey(),
+  requestId: integer().notNull().references(() => requests.id),
+  kind: text({ enum: ["termin", "zeitfenster"] }).notNull(),
+  start: integer({ mode: "timestamp" }).notNull(),
+  end: integer({ mode: "timestamp" }).notNull(),
+});
+
+export const requestsRelations = relations(requests, ({ one, many }) => ({
+  customer: one(users, { fields: [requests.customerId], references: [users.id] }),
+  craftsman: one(users, { fields: [requests.craftsmanId], references: [users.id] }),
+  options: many(options),
+}));
+
+export const optionsRelations = relations(options, ({ one }) => ({
+  request: one(requests, { fields: [options.requestId], references: [requests.id] }),
+}));
