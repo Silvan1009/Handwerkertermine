@@ -2,6 +2,7 @@
 import { redirect } from "next/navigation";
 import { z } from "zod";
 import { register, sendLoginLink } from "../accounts";
+import { setAvailability } from "../availability";
 import { currentUser, endSession } from "../auth";
 import { ctx } from "../context";
 import { chooseOption, createRequest, proposeOption, rejectOptions, type User } from "../requests";
@@ -55,4 +56,8 @@ export async function chooseAction(form: FormData) {
 
 export async function rejectAction(form: FormData) {
   await asUser((u) => rejectOptions(ctx, u, Number(form.get("requestId"))));
+}
+
+export async function availabilityAction(form: FormData) {
+  await asUser((u) => setAvailability(ctx, u, Object.fromEntries(form)));
 }

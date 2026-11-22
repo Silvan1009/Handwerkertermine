@@ -1,12 +1,21 @@
 import { relations } from "drizzle-orm";
 import { integer, sqliteTable, text } from "drizzle-orm/sqlite-core";
 
+export const LEVELS = ["frei", "eingeschraenkt", "ausgebucht"] as const;
+export const CATEGORIES = ["notfall", "kurzfristig", "normal", "spaet"] as const;
+const level = () => text({ enum: LEVELS }); // null = keine Angabe
+
 export const users = sqliteTable("users", {
   id: integer().primaryKey(),
   name: text().notNull(),
   email: text().notNull().unique(),
   role: text({ enum: ["kunde", "handwerker"] }).notNull(),
   trade: text(),
+  // Inserat: wie frei ist der Handwerker je Dringlichkeit (nur für Handwerker relevant)
+  notfall: level(),
+  kurzfristig: level(),
+  normal: level(),
+  spaet: level(),
 });
 
 export const requests = sqliteTable("requests", {

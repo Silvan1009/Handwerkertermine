@@ -1,7 +1,8 @@
 import { eq } from "drizzle-orm";
 import { currentUser } from "../auth";
 import { ctx } from "../context";
-import { users } from "../db/schema";
+import { CATEGORY_LABELS, LEVEL_LABELS } from "../availability";
+import { CATEGORIES, LEVELS, users } from "../db/schema";
 import { listRequests, statusOf } from "../requests";
 import * as a from "./actions";
 
@@ -58,13 +59,42 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ e
       {isKunde && (
         <form action={a.createRequestAction}>
           <h2>Neue Anfrage</h2>
-          <select name="craftsmanId">
-            {craftsmen.map((c) => <option key={c.id} value={c.id}>{c.name} – {c.trade}</option>)}
-          </select>
-          <br />
+          <table>
+            <thead>
+              <tr>
+                <th /><th align="left">Handwerker</th>
+                {CATEGORIES.map((k) => <th key={k}>{CATEGORY_LABELS[k]}</th>)}
+              </tr>
+            </thead>
+            <tbody>
+              {craftsmen.map((c) => (
+                <tr key={c.id}>
+                  <td><input type="radio" name="craftsmanId" value={c.id} id={`c${c.id}`} required /></td>
+                  <td><label htmlFor={`c${c.id}`}>{c.name} – {c.trade}</label></td>
+                  {CATEGORIES.map((k) => <td key={k}>{c[k] ? LEVEL_LABELS[c[k]] : "–"}</td>)}
+                </tr>
+              ))}
+            </tbody>
+          </table>
           <textarea name="description" placeholder="Was ist zu tun?" required cols={50} />
           <br />
           <button>Anfrage senden</button>
+        </form>
+      )}
+
+      {!isKunde && (
+        <form action={a.availabilityAction}>
+          <h2>Mein Inserat: Verfügbarkeit</h2>
+          {CATEGORIES.map((k) => (
+            <label key={k} style={{ display: "block" }}>
+              {CATEGORY_LABELS[k]}:{" "}
+              <select name={k} defaultValue={user[k] ?? ""}>
+                <option value="">keine Angabe</option>
+                {LEVELS.map((l) => <option key={l} value={l}>{LEVEL_LABELS[l]}</option>)}
+              </select>
+            </label>
+          ))}
+          <button>Speichern</button>
         </form>
       )}
 

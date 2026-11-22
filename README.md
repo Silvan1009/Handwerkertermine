@@ -20,6 +20,7 @@ ohne `SMTP_URL` erscheinen alle Mails samt Login-Link im Terminal von `npm run d
 | Datei | Zweck |
 |---|---|
 | `src/requests.ts` | Fachlogik: Anfragen, Vorschläge, Annehmen, Ablehnen, Berechtigungen, Benachrichtigungen. |
+| `src/availability.ts` | Inserat-Verfügbarkeit je Dringlichkeit (Notfall / 1–3 / 4–10 / ab 11 Tagen): frei, eingeschränkt, ausgebucht. |
 | `src/accounts.ts` | Registrierung, Login-Link, signierte Tokens (HMAC, stateless). |
 | `src/context.ts` | `Ctx` = alle Abhängigkeiten (DB, Mailer, URL, Secret). Fachlogik bekommt ihn als Parameter. |
 | `src/auth.ts` / `src/app/login/route.ts` | Session-Cookie und Link-Einlösung – die einzigen Stellen mit Next-spezifischem Auth-Code. |
