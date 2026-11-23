@@ -4,7 +4,7 @@ import { setAvailability } from "../availability";
 import { currentUser, endSession } from "../auth";
 import { ctx } from "../context";
 import { setPricing } from "../pricing";
-import { cancelRequest, chooseOption, createRequest, proposeOption, rateUrgency, rejectOptions } from "../requests";
+import { appealRating, cancelRequest, chooseOption, createRequest, decideAppeal, proposeOption, rateUrgency, rejectOptions } from "../requests";
 import { asUser, back, run } from "./run";
 
 const LINK_SENT = "Falls alles passt, ist ein Link an deine Adresse unterwegs.";
@@ -55,4 +55,12 @@ export async function pricingAction(form: FormData) {
 
 export async function cancelAction(form: FormData) {
   await asUser((u) => cancelRequest(ctx, u, Number(form.get("requestId"))));
+}
+
+export async function appealAction(form: FormData) {
+  await asUser((u) => appealRating(ctx, u, Number(form.get("requestId")), form.get("reason")));
+}
+
+export async function decideAppealAction(form: FormData) {
+  await asUser((u) => decideAppeal(ctx, u, Number(form.get("requestId")), form.get("decision")));
 }
