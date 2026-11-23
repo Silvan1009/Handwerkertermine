@@ -1,6 +1,7 @@
 import { and, desc, eq, inArray, isNotNull, isNull, lte, or, type SQL } from "drizzle-orm";
 import type { Ctx } from "./context";
-import { requests, type Category, type Rating } from "./db/schema";
+import { alias } from "drizzle-orm/sqlite-core";
+import { requests, users, type Category, type Rating } from "./db/schema";
 import { DAY } from "./ratelimit";
 
 export const RATING_ICONS = { gut: "👍", schlecht: "👎", katastrophe: "❌", unterschaetzt: "⬇️" } as const;
@@ -52,13 +53,19 @@ export function ratingCounts(now: Date): SQL {
 
 /** NAHTSTELLE (Agent telefon): Bewertungsstand je Kunde. Welche Bewertungen zählen, entscheidet ausschließlich ratingCounts(now). */
 export async function standingsOf(ctx: Ctx, customerIds: number[], now = new Date()) {
+  // Bewertungen zählen pro Person: alle Konten mit derselben bestätigten Nummer (auch gelöschte) – eine Sperre lässt sich
+  // nicht mit einem neuen Konto umgehen. Konten ohne Nummer zählen für sich. Eine Abfrage für alle Kunden.
+  const me = alias(users, "me");
+  const author = alias(users, "author");
   const rows = customerIds.length
     ? await ctx.db
-        .select({ customerId: requests.customerId, rating: requests.urgencyRating })
+        .select({ customerId: me.id, rating: requests.urgencyRating })
         .from(requests)
+        .innerJoin(author, eq(author.id, requests.customerId))
+        .innerJoin(me, or(eq(me.id, author.id), eq(me.phoneHash, author.phoneHash)))
         .where(
           and(
-            inArray(requests.customerId, customerIds),
+            inArray(me.id, customerIds),
             isNotNull(requests.urgencyRating),
             ratingCounts(now),
           ),

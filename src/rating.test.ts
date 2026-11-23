@@ -13,7 +13,7 @@ beforeEach(async () => {
   [kunde, andererKunde, handwerker, andererHandwerker] = await ctx.db
     .insert(users)
     .values([
-      { name: "K1", email: "k1@x.de", role: "kunde" },
+      { name: "K1", email: "k1@x.de", role: "kunde", phoneHash: "k1" }, // bestätigte Nummer: Notfall erlaubt
       { name: "K2", email: "k2@x.de", role: "kunde" },
       { name: "H1", email: "h1@x.de", role: "handwerker" },
       { name: "H2", email: "h2@x.de", role: "handwerker" },
