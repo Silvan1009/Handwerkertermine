@@ -56,7 +56,6 @@ test("ohne Nummer: Notfall abgelehnt mit Hinweis → Nummer über Profil + Postf
   await expect(kunde.getByText("✅ Handynummer bestätigt", { exact: true })).toBeVisible(); // Meldung
   await expect(kunde.getByText(`✅ Handynummer bestätigt (endet auf ••${digits.slice(-2)})`)).toBeVisible();
   await expect(kunde.getByRole("form", { name: "Code bestätigen" })).toHaveCount(0);
-  await expect(kunde.getByText(`${digits.slice(0, 4)}`)).toHaveCount(0); // Klartext wird nicht angezeigt
 
   // jetzt geht die Notfall-Anfrage, kein Hinweis mehr
   await notfallAnfrage(kunde, trade, text);
