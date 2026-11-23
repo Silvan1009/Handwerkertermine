@@ -4,7 +4,7 @@ import { ctx } from "../context";
 import { CATEGORY_LABELS, LEVEL_LABELS, findCraftsmen } from "../availability";
 import { CATEGORIES, LEVELS, RATINGS, type Category } from "../db/schema";
 import { canCancel, listRequests, statusOf } from "../requests";
-import { APPEALABLE, LOCK_HINT, RATING_ICONS, RATING_LABELS, RESTRICTED, standingsOf } from "../urgency";
+import { APPEALABLE, LOCK_HINT, RATING_ICONS, RATING_LABELS, RESTRICTED, appealDeadline, standingsOf } from "../urgency";
 import { formatLocal as time } from "../time";
 import { devMailboxEnabled } from "../mail";
 import { KIND_LABELS, PRICE_KINDS, formatConditions, type Condition } from "../pricing";
@@ -244,6 +244,11 @@ export default async function Home({ searchParams }: { searchParams: Promise<Rec
               <p>
                 ⚖️ {r.appeal === "offen" ? "Einspruch offen" : r.appeal === "zurueckgenommen" ? "Einspruch erfolgreich – Bewertung zurückgenommen" : "Einspruch abgelehnt – Bewertung bleibt"}
                 : „{r.appealReason}“
+                {r.appeal === "offen" && r.appealedAt && (
+                  <><br /><small>⏳ {appealDeadline(r.appealedAt).getTime() > Date.now()
+                    ? `Einspruch offen – Frist bis ${time(appealDeadline(r.appealedAt))} (ohne Entscheidung zählt die Bewertung danach wieder)`
+                    : "Einspruchsfrist abgelaufen – Bewertung zählt wieder (Entscheidung weiterhin möglich)"}</small></>
+                )}
               </p>
             )}
             {!isKunde && r.appeal === "offen" && (
