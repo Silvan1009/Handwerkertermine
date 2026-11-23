@@ -36,7 +36,6 @@ export function scoreOf(ratings: Rating[]) {
   return { score, locked: score < 0 };
 }
 
-/** Bewertungsstand mehrerer Kunden mit einer einzigen Abfrage (kein N+1). */
 /** Ein offener Einspruch setzt die Bewertung nur so lange aus – entscheidet der Handwerker nicht, zählt sie danach wieder. */
 export const APPEAL_PERIOD = 7 * DAY;
 export const appealDeadline = (appealedAt: Date) => new Date(appealedAt.getTime() + APPEAL_PERIOD);

@@ -16,7 +16,9 @@ test("Fußzeile führt zur Datenschutzseite, die Bewertung, Sperre und Einspruch
     await expect(kunde.getByRole("heading", { name: h })).toBeVisible();
   await expect(kunde.getByText("❌ stark übertrieben: −5 Punkte")).toBeVisible();
   await expect(kunde.getByText("Einspruch:", { exact: true })).toBeVisible();
-  await expect(kunde.getByText(/bis dein Konto gelöscht wird/)).toBeVisible();
+  await expect(kunde.getByText(/bis du dein Konto löschst/)).toBeVisible();
+  await expect(kunde.getByText("7 Tage", { exact: true })).toBeVisible(); // Einspruchsfrist (fett im Text)
+  await expect(kunde.getByText(/Bewertungen hängen an der Handynummer/)).toBeVisible();
   // Fußzeile auch ohne Anmeldung
   const anonym = await (await browser.newContext()).newPage();
   await anonym.goto("/");

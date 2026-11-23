@@ -6,7 +6,7 @@ test.beforeEach(() => void (errors.length = 0));
 test.afterEach(() => expect(errors).toEqual([]));
 
 /** Fristablauf selbst prüft der Unit-Test (src/appeal-deadline.test.ts) – hier nur die Anzeige der Frist. */
-test("Einspruch → beide Seiten sehen „Einspruch offen – Frist bis …“, Handwerker bekommt die Frist per Mail", async ({ browser }) => {
+test("Einspruch → beide Seiten sehen „Einspruch offen“ und „⏳ Frist bis …“, Handwerker bekommt die Frist per Mail", async ({ browser }) => {
   const run = `${Date.now()}`;
   const trade = `Fristtest${run}`;
   const text = `Wasserhahn tropft ${run}`;
@@ -40,13 +40,13 @@ test("Einspruch → beide Seiten sehen „Einspruch offen – Frist bis …“, 
   await k.locator("[name=reason]").fill("Es tropft seit Tagen");
   await k.getByRole("button", { name: "Einspruch einlegen" }).click();
   await expect(k).toContainText("Einspruch offen: „Es tropft seit Tagen“");
-  await expect(k).toContainText("Einspruch offen – Frist bis");
+  await expect(k).toContainText("⏳ Frist bis");
   await expect(k.locator("small", { hasText: "Frist bis" })).toContainText(until);
   await expect(k).not.toContainText("Einspruchsfrist abgelaufen");
 
   // Handwerker sieht dieselbe Frist und hat eine Mail mit Frist
   await hw.goto("/");
-  await expect(h).toContainText("Einspruch offen – Frist bis");
+  await expect(h).toContainText("⏳ Frist bis");
   await expect(h.locator("small", { hasText: "Frist bis" })).toContainText(until);
   await hw.goto("/postfach");
   const mail = hw.locator("article", { hasText: text }).filter({ hasText: "Einspruch von Frist Kundin gegen deine Bewertung" });

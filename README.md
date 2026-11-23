@@ -42,7 +42,9 @@ Das Postfach zeigt die letzten 50 Mails und leert sich bei jedem Neustart der Ap
 |---|---|
 | `src/requests.ts` | Fachlogik: Anfragen, Vorschläge, Annehmen, Ablehnen, Berechtigungen, Benachrichtigungen. |
 | `src/availability.ts` | Inserat-Verfügbarkeit je Dringlichkeit; Suche nach Dringlichkeit, Gewerk, PLZ/Ort; Blättern (`paged`, 20 pro Seite). |
-| `src/profile.ts` + `src/app/profil/` | Profil bearbeiten: Name, Gewerk, PLZ, Ort (E-Mail und Rolle fest). |
+| `src/profile.ts` + `src/app/profil/` | Profil bearbeiten: Name, Gewerk, PLZ, Ort (E-Mail und Rolle fest); Handynummer bestätigen; Konto löschen. |
+| `src/phone.ts` | Handynummer per SMS-Code bestätigen (stateless, nur HMAC-Hash gespeichert); Pflicht für Notfall/kurzfristig. |
+| `src/deletion.ts` | Konto löschen: anonymisieren, offene/künftige Termine stornieren + Mail, Fotos/Kalender/Profil entfernen. |
 | `src/urgency.ts` | Scoring der Dringlichkeits-Selbsteinschätzung (siehe unten). |
 | `src/pricing.ts` | Rabatte/Aufschläge (je Dringlichkeit, App-Buchung, Erstkunde; % oder €) und welche bei einer Buchung gelten. |
 | `src/calendar.ts` | Kalender: externe Termine, Blocker, Termine pro Tag, Buchbarkeitsprüfung bei jedem Vorschlag und jeder Annahme. |
@@ -85,8 +87,11 @@ auch ohne Annahme oder nach Storno (gerade übertriebene Notfälle sollen bewert
 - Startguthaben **3**, es zählen nur die **letzten 10** Bewertungen → eine Sperre ist immer vorübergehend
 - Score **< 0** → keine Notfall- oder kurzfristigen Anfragen; normale/spätere Termine bleiben möglich und heben die Sperre mit 👍 wieder auf
 - Der Kunde bekommt bei jeder Bewertung eine Mail, bei Sperre mit Hinweis, wie er sie wieder aufhebt
-- **Einspruch** gegen 👎/❌ (einmal, mit Begründung): Bis der Handwerker entscheidet, zählt die Bewertung nicht.
-  Er kann sie zurücknehmen (zählt nie) oder bestätigen (zählt wieder). Beide Seiten bekommen Mails.
+- **Einspruch** gegen 👎/❌ (einmal, mit Begründung): Bis der Handwerker entscheidet, zählt die Bewertung nicht – höchstens
+  **7 Tage**, danach zählt sie wieder. Er kann sie (auch später) zurücknehmen (zählt nie) oder bestätigen (zählt). Beide Seiten bekommen Mails.
+- **Bewertungen hängen an der Handynummer:** Notfall-/kurzfristige Anfragen nur mit per SMS bestätigter Nummer; eine Nummer
+  gehört höchstens einem aktiven Konto; Bewertungen aller Konten mit derselben Nummer (auch gelöschter) werden zusammengezählt
+  → eine Sperre lässt sich weder mit einem neuen Konto noch durch Löschen umgehen.
 - Handwerker sehen bei jeder Anfrage die Bewertungsbilanz des Kunden; erklärt auf `/datenschutz`
 
 Stellschrauben: `RATING_POINTS`, `START`, `WINDOW` in `src/urgency.ts`, Beispiele als Tabelle in `src/urgency.test.ts`.
@@ -117,6 +122,5 @@ Migration, die bei jeder Schemaänderung komplett neu erzeugt wird – keine Rü
 
 ## Noch nicht umgesetzt
 
-- Konto löschen (die Datenschutzseite sagt das bereits).
-- Frist für Einsprüche: Ein offener Einspruch setzt die Bewertung aus, bis der Handwerker entscheidet – ohne zeitliche Grenze.
-- Schutz davor, eine Sperre mit einem neuen Konto zu umgehen (bräuchte z. B. Telefon-Verifizierung).
+- Echter SMS-Versand: Es ist kein Anbieter angebunden – Codes landen (in der Entwicklung) im Test-Postfach.
+- Keine Benachrichtigung, wenn eine Einspruchsfrist abläuft (es gibt keinen Zeitplaner); die Anzeige in der Anfrage stimmt trotzdem.

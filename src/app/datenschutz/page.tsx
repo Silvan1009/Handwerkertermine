@@ -18,6 +18,9 @@ export default function Datenschutz() {
           bei der Buchung geltenden Rabatte und Aufschläge.</li>
         <li><b>Fotos</b>, die du einer Anfrage anhängst (höchstens 5, im Browser vorher verkleinert).</li>
         <li><b>Kalender</b> der Handwerker: externe Termine und Blocker mit optionalem Titel.</li>
+        <li><b>Handynummer</b> (freiwillig, nötig für Notfall- und kurzfristige Anfragen): Wir speichern sie <b>nicht im
+          Klartext</b>, sondern nur einen nicht umkehrbaren Hash und die letzten zwei Ziffern zur Anzeige. Die Nummer selbst
+          verwenden wir nur, um den Bestätigungscode per SMS zu schicken.</li>
         <li><b>Anmeldung:</b> ein Sitzungs-Cookie, damit du angemeldet bleibst. Wir setzen keine Werbe- oder Tracking-Cookies.</li>
       </ul>
 
@@ -43,17 +46,33 @@ export default function Datenschutz() {
         <b> automatisch</b> Notfall- und kurzfristige Anfragen. Normale und spätere Termine bleiben möglich; gut bewertete heben die
         Sperre wieder auf. Über jede Bewertung bekommst du eine Mail.</p>
       <p><b>Einspruch:</b> Gegen eine Bewertung als übertrieben oder stark übertrieben kannst du bei der Anfrage einmal Einspruch
-        mit Begründung einlegen. Solange der Einspruch offen ist, zählt die Bewertung nicht. Der Handwerker nimmt die Bewertung dann
-        zurück (sie zählt nie mehr) oder bestätigt sie (sie zählt wieder). Beide Seiten werden per Mail informiert.</p>
+        mit Begründung einlegen. Solange der Handwerker nicht entschieden hat, zählt die Bewertung nicht – höchstens aber
+        <b>7 Tage</b> ab dem Einspruch; danach zählt sie wieder. Er kann auch später noch entscheiden: Nimmt er die Bewertung zurück,
+        zählt sie nie; bestätigt er sie, zählt sie. Beide Seiten werden per Mail informiert. Den Zeitpunkt deines Einspruchs
+        speichern wir, um die Frist zu berechnen.</p>
+      <p><b>Bewertungen hängen an der Handynummer:</b> Hast du eine Nummer bestätigt, werden Bewertungen aller Konten mit derselben
+        Nummer zusammengezählt – auch die eines früher gelöschten Kontos. So lässt sich eine Sperre nicht mit einem neuen Konto
+        umgehen. Eine Nummer kann immer nur bei einem aktiven Konto hinterlegt sein.</p>
 
       <h3>E-Mails</h3>
+      <p>Per SMS schicken wir nur den Bestätigungscode für deine Handynummer (10 Minuten gültig; höchstens 3 Codes und 5
+        Eingabeversuche pro Stunde). Für den Versand erhält der SMS-Anbieter die Nummer.</p>
       <p>Wir schicken Login-Links und Benachrichtigungen (neue Anfrage, Vorschläge, Bestätigung, Absage, Stornierung, Bewertung,
         Einspruch) an deine E-Mail-Adresse. Benachrichtigungen enthalten die Beschreibung der Anfrage. Newsletter oder Werbung
         verschicken wir nicht.</p>
 
-      <h3>Wie lange wir speichern</h3>
-      <p>Deine Daten bleiben gespeichert, bis dein Konto gelöscht wird. Eine Funktion zum Löschen des Kontos gibt es noch nicht –
-        sie ist geplant. Bis dahin bitte beim Betreiber der App melden.</p>
+      <h3>Wie lange wir speichern – Konto löschen</h3>
+      <p>Deine Daten bleiben gespeichert, bis du dein Konto löschst. Das geht jederzeit unter <a href="/profil">Profil</a>
+        (Bestätigung durch Eintippen von LÖSCHEN) und wirkt sofort:</p>
+      <ul>
+        <li>Name, E-Mail-Adresse, PLZ und Ort werden gelöscht; bei Handwerkern auch Gewerk, Inserat (Verfügbarkeit, Rabatte und
+          Aufschläge, Termine pro Tag) und Kalender; bei Kunden alle Fotos, Anfragetexte und Einspruchsbegründungen.</li>
+        <li>Offene und künftige Termine werden storniert, die Gegenseite bekommt eine Mail. Vergangene Termine bleiben beim
+          Gegenüber als „Gelöschtes Konto“ sichtbar.</li>
+        <li>Alle Sitzungen werden beendet; die E-Mail-Adresse kann danach neu registriert werden.</li>
+        <li>Ist eine Handynummer bestätigt, bleiben ihr Hash, die letzten zwei Ziffern und die Dringlichkeitsbewertungen gespeichert
+          (siehe oben – sonst ließe sich eine Sperre durch Löschen umgehen).</li>
+      </ul>
 
       <p><a href="/">Zurück zur App</a></p>
     </>

@@ -247,7 +247,7 @@ export default async function Home({ searchParams }: { searchParams: Promise<Rec
                 : „{r.appealReason}“
                 {r.appeal === "offen" && r.appealedAt && (
                   <><br /><small>⏳ {appealDeadline(r.appealedAt).getTime() > Date.now()
-                    ? `Einspruch offen – Frist bis ${time(appealDeadline(r.appealedAt))} (ohne Entscheidung zählt die Bewertung danach wieder)`
+                    ? `Frist bis ${time(appealDeadline(r.appealedAt))} (ohne Entscheidung zählt die Bewertung danach wieder)`
                     : "Einspruchsfrist abgelaufen – Bewertung zählt wieder (Entscheidung weiterhin möglich)"}</small></>
                 )}
               </p>
