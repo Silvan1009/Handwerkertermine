@@ -41,11 +41,13 @@ Das Postfach zeigt die letzten 50 Mails und leert sich bei jedem Neustart der Ap
 | Datei | Zweck |
 |---|---|
 | `src/requests.ts` | Fachlogik: Anfragen, Vorschläge, Annehmen, Ablehnen, Berechtigungen, Benachrichtigungen. |
-| `src/availability.ts` | Inserat-Verfügbarkeit je Dringlichkeit (Notfall / 1–3 / 4–10 / ab 11 Tagen): frei, eingeschränkt, ausgebucht. |
+| `src/availability.ts` | Inserat-Verfügbarkeit je Dringlichkeit; Suche nach Dringlichkeit, Gewerk, PLZ/Ort; Blättern (`paged`, 20 pro Seite). |
+| `src/profile.ts` + `src/app/profil/` | Profil bearbeiten: Name, Gewerk, PLZ, Ort (E-Mail und Rolle fest). |
 | `src/urgency.ts` | Scoring der Dringlichkeits-Selbsteinschätzung (siehe unten). |
 | `src/pricing.ts` | Rabatte/Aufschläge (je Dringlichkeit, App-Buchung, Erstkunde; % oder €) und welche bei einer Buchung gelten. |
 | `src/calendar.ts` | Kalender: externe Termine, Blocker, Termine pro Tag, Buchbarkeitsprüfung bei jedem Vorschlag und jeder Annahme. |
 | `src/app/kalender/` | Kalenderansicht für Handwerker (Monatsraster + Tagesdetail). |
+| `src/app/datenschutz/` | Datenschutz-Hinweise (Entwurf) – Daten, Sichtbarkeit, Bewertung, Sperre, Einspruch. |
 | `src/accounts.ts` | Registrierung, Login-Link, signierte Tokens (HMAC, stateless). |
 | `src/context.ts` | `Ctx` = alle Abhängigkeiten (DB, Mailer, Ratelimit, URL, Secret). Fachlogik bekommt ihn als Parameter. |
 | `src/errors.ts` | `UserError` = Fehler, deren Text der Nutzer sehen darf. Alles andere wird nur geloggt. |
@@ -53,7 +55,7 @@ Das Postfach zeigt die letzten 50 Mails und leert sich bei jedem Neustart der Ap
 | `src/ratelimit.ts` | Spam-Bremse (In-Memory, pro Instanz). |
 | `src/auth.ts` / `src/app/login/route.ts` | Session-Cookie und Link-Einlösung – die einzigen Stellen mit Next-spezifischem Auth-Code. |
 | `src/*.test.ts` | Tests gegen echte In-Memory-SQLite + Mail-Postfach (`src/test-ctx.ts`) – keine Mocks. |
-| `e2e/*.e2e.ts` | Browser-Smoke-Test; scheitert auch bei jedem Fehler in der Browser-Konsole. |
+| `e2e/*.e2e.ts` | Browser-Tests (parallel); scheitern auch bei Fehlern in der Browser-Konsole. Neue Tests legen über `registerAndLogin` (`e2e/helpers.ts`) eigene Nutzer an, statt Seed-Nutzer zu verändern. |
 | `src/app/image-picker.tsx` | Einzige Client-Komponente: verkleinert Fotos vor dem Upload im Browser auf max. 1600 px. |
 | `src/app/bild/[id]/route.ts` | Liefert Fotos aus (in der DB gespeichert) – nur an Kunde und Handwerker der Anfrage. |
 | `src/app/**` | Dünne UI: eine Seite, Server Actions rufen nur die Fachlogik auf. |
@@ -70,14 +72,25 @@ Designentscheidungen:
 
 ### Dringlichkeits-Scoring
 
-Kunden geben bei jeder Anfrage an, wie dringend sie ist. Nach der Bestätigung bewertet der Handwerker diese Einschätzung einmalig mit 👍, 👎 oder ❌ (Katastrophe).
+Kunden geben bei jeder Anfrage an, wie dringend sie ist. Der Handwerker bewertet diese Einschätzung einmalig – jederzeit,
+auch ohne Annahme oder nach Storno (gerade übertriebene Notfälle sollen bewertbar sein):
 
-- Startguthaben **3**, je Bewertung 👍 **+1**, 👎 **−2**, ❌ **−5**
-- Es zählen nur die **letzten 10** Bewertungen, eine Sperre ist also immer vorübergehend
-- Score **< 0** → keine Notfall- oder kurzfristigen Anfragen. Normale und spätere Termine bleiben möglich und heben die Sperre mit 👍 wieder auf (nach einem ❌ reichen zwei 👍)
-- Handwerker sehen bei jeder Anfrage die bisherigen Bewertungen des Kunden
+| Bewertung | Punkte |
+|---|---|
+| 👍 passend | +1 |
+| 👎 übertrieben | −2 |
+| ❌ stark übertrieben | −5 |
+| ⬇️ dringender als angegeben | 0 – nur Übertreibung wird bestraft |
+
+- Startguthaben **3**, es zählen nur die **letzten 10** Bewertungen → eine Sperre ist immer vorübergehend
+- Score **< 0** → keine Notfall- oder kurzfristigen Anfragen; normale/spätere Termine bleiben möglich und heben die Sperre mit 👍 wieder auf
+- Der Kunde bekommt bei jeder Bewertung eine Mail, bei Sperre mit Hinweis, wie er sie wieder aufhebt
+- **Einspruch** gegen 👎/❌ (einmal, mit Begründung): Bis der Handwerker entscheidet, zählt die Bewertung nicht.
+  Er kann sie zurücknehmen (zählt nie) oder bestätigen (zählt wieder). Beide Seiten bekommen Mails.
+- Handwerker sehen bei jeder Anfrage die Bewertungsbilanz des Kunden; erklärt auf `/datenschutz`
 
 Stellschrauben: `RATING_POINTS`, `START`, `WINDOW` in `src/urgency.ts`, Beispiele als Tabelle in `src/urgency.test.ts`.
+Werden die Regeln geändert, auch den Text auf `src/app/datenschutz/page.tsx` anpassen.
 
 ### Rabatte & Aufschläge (ohne Auftragspreise)
 
@@ -95,11 +108,15 @@ Handwerker hinterlegen im Inserat Regeln – je Dringlichkeit (Aufschlag oder Ra
 - **Buchbarkeit:** Jeder Vorschlag (auch Gegenvorschläge des Kunden) und jede Annahme wird geprüft: blockiert? Überschneidung
   mit App- oder externem Termin? Tageslimit erreicht? Kunden sehen dabei keine privaten Details des Handwerkers.
 - **Termine pro Tag** zählt App- und externe Termine am Berliner Kalendertag ihres Beginns; Stornierte zählen nicht.
+- **Keine Doppelbuchung:** Die Annahme ist eine einzige bedingte SQL-Anweisung – auch bei gleichzeitigen Annahmen gewinnt nur eine.
+- **Erstkundenrabatt** gilt genau einmal je Kunde und Handwerker (stornierte Aufträge zählen nicht; bei parallelen Anfragen
+  verliert die später bestätigte den Rabatt – atomar in derselben Anweisung).
 
 Schema ändern: `src/db/schema.ts` anpassen → `npm run db:reset`. Die App ist nicht produktiv: Es gibt genau eine
 Migration, die bei jeder Schemaänderung komplett neu erzeugt wird – keine Rücksicht auf Bestandsdaten.
 
 ## Noch nicht umgesetzt
 
-- Listen sind begrenzt (50 Anfragen, 100 Handwerker), es gibt noch kein Blättern.
-- Keine Profilbearbeitung, keine Suche/Filter nach Gewerk oder Ort.
+- Konto löschen (die Datenschutzseite sagt das bereits).
+- Frist für Einsprüche: Ein offener Einspruch setzt die Bewertung aus, bis der Handwerker entscheidet – ohne zeitliche Grenze.
+- Schutz davor, eine Sperre mit einem neuen Konto zu umgehen (bräuchte z. B. Telefon-Verifizierung).
