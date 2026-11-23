@@ -5,11 +5,11 @@ import type { Ctx } from "./context";
 import type { Db } from "./db";
 import { CATEGORIES, RATINGS, images, options, requests, users } from "./db/schema";
 import { CATEGORY_LABELS, paged } from "./availability";
-import { APPEALABLE, LOCK_HINT, RATING_LABELS, RESTRICTED, standingOf } from "./urgency";
+import { APPEALABLE, LOCK_HINT, RATING_LABELS, RESTRICTED, appealDeadline, standingOf } from "./urgency";
 import { conditionsFor } from "./pricing";
 import { UserError } from "./errors";
 import { DAY } from "./ratelimit";
-import { parseLocal } from "./time";
+import { formatLocal, parseLocal } from "./time";
 import { assertBookable } from "./calendar";
 
 export type User = typeof users.$inferSelect;
@@ -197,8 +197,8 @@ export async function rateUrgency(ctx: Ctx, user: User, requestId: number, ratin
 
 const Reason = z.string("Begründung fehlt").trim().min(1, "Begründung fehlt").max(500, "Begründung zu lang (max. 500 Zeichen)");
 
-/** Kunde legt einmal Einspruch gegen eine Bewertung als (stark) übertrieben ein – bis zur Entscheidung zählt sie nicht. */
-export async function appealRating(ctx: Ctx, user: User, requestId: number, reason: unknown) {
+/** Kunde legt einmal Einspruch gegen eine Bewertung als (stark) übertrieben ein – bis zur Entscheidung, höchstens 7 Tage, zählt sie nicht. */
+export async function appealRating(ctx: Ctx, user: User, requestId: number, reason: unknown, now = new Date()) {
   const text = Reason.parse(reason);
   const req = participant(await loadRequest(ctx.db, requestId), user);
   if (req.customerId !== user.id) deny();
@@ -206,11 +206,13 @@ export async function appealRating(ctx: Ctx, user: User, requestId: number, reas
     throw new UserError("Einspruch nur gegen eine Bewertung als übertrieben möglich");
   const [row] = await ctx.db
     .update(requests)
-    .set({ appeal: "offen", appealReason: text })
+    .set({ appeal: "offen", appealReason: text, appealedAt: now })
     .where(and(eq(requests.id, req.id), isNull(requests.appeal)))
     .returning();
   if (!row) throw new UserError("Einspruch wurde bereits eingelegt");
-  await notifyOther(ctx, req, user, `Einspruch von ${user.name} gegen deine Bewertung`, `Begründung: ${text}`);
+  const deadline = formatLocal(appealDeadline(now));
+  await notifyOther(ctx, req, user, `Einspruch von ${user.name} gegen deine Bewertung`,
+    `Begründung: ${text}\n\nBitte entscheide bis ${deadline} – danach zählt die Bewertung wieder (entscheiden kannst du auch später noch).`);
 }
 
 /** Handwerker entscheidet über einen offenen Einspruch: Bewertung zurücknehmen oder bestätigen. Mail an den Kunden. */

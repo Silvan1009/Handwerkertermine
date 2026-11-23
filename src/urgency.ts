@@ -1,6 +1,7 @@
-import { and, desc, eq, inArray, isNotNull, isNull, or, type SQL } from "drizzle-orm";
+import { and, desc, eq, inArray, isNotNull, isNull, lte, or, type SQL } from "drizzle-orm";
 import type { Ctx } from "./context";
 import { requests, type Category, type Rating } from "./db/schema";
+import { DAY } from "./ratelimit";
 
 export const RATING_ICONS = { gut: "👍", schlecht: "👎", katastrophe: "❌", unterschaetzt: "⬇️" } as const;
 export const RATING_LABELS = {
@@ -14,7 +15,7 @@ export const RATING_LABELS = {
  * Scoring der Dringlichkeits-Selbsteinschätzung:
  * - Startguthaben 3, dann je Bewertung 👍 +1, 👎 −2, ❌ −5, ⬇️ 0 (nur Übertreibung wird bestraft).
  * - Nur die letzten 10 Bewertungen (nach Bewertungszeitpunkt) zählen → Sperre ist vorübergehend.
- * - Bewertungen mit offenem Einspruch oder vom Handwerker zurückgenommene zählen nicht.
+ * - Vom Handwerker zurückgenommene Bewertungen zählen nicht, solche mit offenem Einspruch erst nach 7 Tagen wieder.
  * - Score < 0 → keine Notfall-/kurzfristigen Anfragen. Normale/späte Termine bleiben möglich;
  *   gut bewertete davon heben die Sperre wieder auf (nach einem ❌ z. B. zwei 👍).
  */
@@ -35,10 +36,18 @@ export function scoreOf(ratings: Rating[]) {
 }
 
 /** Bewertungsstand mehrerer Kunden mit einer einzigen Abfrage (kein N+1). */
+/** Ein offener Einspruch setzt die Bewertung nur so lange aus – entscheidet der Handwerker nicht, zählt sie danach wieder. */
+export const APPEAL_PERIOD = 7 * DAY;
+export const appealDeadline = (appealedAt: Date) => new Date(appealedAt.getTime() + APPEAL_PERIOD);
+
 /** NAHTSTELLE (Agent frist): SQL-Bedingung, welche Bewertungen zum Zeitpunkt `now` zählen. */
 export function ratingCounts(now: Date): SQL {
-  void now;
-  return or(isNull(requests.appeal), eq(requests.appeal, "bestaetigt"))!; // offener Einspruch / zurückgenommen zählt nicht
+  // zurückgenommen zählt nie; offener Einspruch nur bis zum Fristablauf nicht
+  return or(
+    isNull(requests.appeal),
+    eq(requests.appeal, "bestaetigt"),
+    and(eq(requests.appeal, "offen"), lte(requests.appealedAt, new Date(now.getTime() - APPEAL_PERIOD))),
+  )!;
 }
 
 /** NAHTSTELLE (Agent telefon): Bewertungsstand je Kunde. Welche Bewertungen zählen, entscheidet ausschließlich ratingCounts(now). */
