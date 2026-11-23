@@ -3,6 +3,8 @@ import { openFlash } from "../../accounts";
 import { currentUser } from "../../auth";
 import { ctx } from "../../context";
 import { profileAction } from "./actions";
+import { LoeschenSection } from "./loeschen";
+import { TelefonSection } from "./telefon";
 
 export const dynamic = "force-dynamic";
 
@@ -38,6 +40,8 @@ export default async function Profil({ searchParams }: { searchParams: Promise<{
         <br />
         <button>Speichern</button>
       </form>
+      <TelefonSection user={user} />
+      <LoeschenSection user={user} />
     </>
   );
 }

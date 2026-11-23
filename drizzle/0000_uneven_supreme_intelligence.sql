@@ -41,6 +41,7 @@ CREATE TABLE `requests` (
 	`ratedAt` integer,
 	`appeal` text,
 	`appealReason` text,
+	`appealedAt` integer,
 	`conditions` text NOT NULL,
 	`chosenOptionId` integer,
 	`cancelledAt` integer,
@@ -64,7 +65,11 @@ CREATE TABLE `users` (
 	`spaet` text,
 	`pricing` text,
 	`sessionVersion` integer DEFAULT 0 NOT NULL,
-	`maxPerDay` integer
+	`maxPerDay` integer,
+	`phoneHash` text,
+	`phoneHint` text,
+	`deletedAt` integer
 );
 --> statement-breakpoint
-CREATE UNIQUE INDEX `users_email_unique` ON `users` (`email`);
+CREATE UNIQUE INDEX `users_email_unique` ON `users` (`email`);--> statement-breakpoint
+CREATE UNIQUE INDEX `users_phone_active` ON `users` (`phoneHash`) WHERE "users"."deletedAt" is null;

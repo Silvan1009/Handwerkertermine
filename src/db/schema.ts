@@ -1,5 +1,5 @@
-import { relations } from "drizzle-orm";
-import { blob, index, integer, sqliteTable, text } from "drizzle-orm/sqlite-core";
+import { relations, sql } from "drizzle-orm";
+import { blob, index, integer, sqliteTable, text, uniqueIndex } from "drizzle-orm/sqlite-core";
 import type { Condition, Pricing } from "../pricing";
 
 export const LEVELS = ["frei", "eingeschraenkt", "ausgebucht"] as const;
@@ -12,7 +12,9 @@ export type Category = (typeof CATEGORIES)[number];
 export type Rating = (typeof RATINGS)[number];
 const level = () => text({ enum: LEVELS }); // null = keine Angabe
 
-export const users = sqliteTable("users", {
+export const users = sqliteTable(
+  "users",
+  {
   id: integer().primaryKey(),
   name: text().notNull(),
   email: text().notNull().unique(),
@@ -28,7 +30,14 @@ export const users = sqliteTable("users", {
   pricing: text({ mode: "json" }).$type<Pricing>(), // Rabatt-/Aufschlagsregeln
   sessionVersion: integer().notNull().default(0), // hochzählen = alle Sitzungen des Users ungültig
   maxPerDay: integer(), // Handwerker: max. Termine pro Tag (App + extern), null = unbegrenzt
-});
+  // Verifizierte Handynummer: nur HMAC-Hash (+ letzte 2 Ziffern zur Anzeige). Bewertungen hängen an der Nummer.
+  phoneHash: text(),
+  phoneHint: text(),
+  deletedAt: integer({ mode: "timestamp" }), // Konto gelöscht (anonymisiert); phoneHash bleibt für den Bewertungsstand
+  },
+  // eine Nummer gehört höchstens einem AKTIVEN Konto
+  (t) => [uniqueIndex("users_phone_active").on(t.phoneHash).where(sql`${t.deletedAt} is null`)],
+);
 
 export const requests = sqliteTable(
   "requests",
@@ -42,6 +51,7 @@ export const requests = sqliteTable(
     ratedAt: integer({ mode: "timestamp" }),
     appeal: text({ enum: APPEALS }), // Einspruch des Kunden gegen die Bewertung; null = keiner
     appealReason: text(),
+    appealedAt: integer({ mode: "timestamp" }), // Einspruchsfrist: 7 Tage ab hier
     // Bei Buchung geltende Rabatte und Aufschläge, als Snapshot – spätere Regeländerungen ändern sie nicht
     conditions: text({ mode: "json" }).$type<Condition[]>().notNull(),
     // Status wird abgeleitet (siehe statusOf) – keine separate Statusspalte, die auseinanderlaufen kann.

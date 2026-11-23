@@ -1,4 +1,4 @@
-import { and, desc, eq, inArray, isNotNull, isNull, or } from "drizzle-orm";
+import { and, desc, eq, inArray, isNotNull, isNull, or, type SQL } from "drizzle-orm";
 import type { Ctx } from "./context";
 import { requests, type Category, type Rating } from "./db/schema";
 
@@ -35,7 +35,14 @@ export function scoreOf(ratings: Rating[]) {
 }
 
 /** Bewertungsstand mehrerer Kunden mit einer einzigen Abfrage (kein N+1). */
-export async function standingsOf(ctx: Ctx, customerIds: number[]) {
+/** NAHTSTELLE (Agent frist): SQL-Bedingung, welche Bewertungen zum Zeitpunkt `now` zählen. */
+export function ratingCounts(now: Date): SQL {
+  void now;
+  return or(isNull(requests.appeal), eq(requests.appeal, "bestaetigt"))!; // offener Einspruch / zurückgenommen zählt nicht
+}
+
+/** NAHTSTELLE (Agent telefon): Bewertungsstand je Kunde. Welche Bewertungen zählen, entscheidet ausschließlich ratingCounts(now). */
+export async function standingsOf(ctx: Ctx, customerIds: number[], now = new Date()) {
   const rows = customerIds.length
     ? await ctx.db
         .select({ customerId: requests.customerId, rating: requests.urgencyRating })
@@ -44,7 +51,7 @@ export async function standingsOf(ctx: Ctx, customerIds: number[]) {
           and(
             inArray(requests.customerId, customerIds),
             isNotNull(requests.urgencyRating),
-            or(isNull(requests.appeal), eq(requests.appeal, "bestaetigt")), // offener Einspruch / zurückgenommen zählt nicht
+            ratingCounts(now),
           ),
         )
         .orderBy(desc(requests.ratedAt), desc(requests.id))

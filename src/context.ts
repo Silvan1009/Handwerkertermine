@@ -1,9 +1,9 @@
 import { createDb, type Db } from "./db";
-import { send, type Send } from "./mail";
+import { send, sendSms, type Send, type SendSms } from "./mail";
 import { createLimiter, type Limit } from "./ratelimit";
 
 /** Alle Abhängigkeiten der Fachlogik. Tests bauen sich ihren eigenen Ctx. */
-export type Ctx = { db: Db; send: Send; limit: Limit; appUrl: string; secret: string };
+export type Ctx = { db: Db; send: Send; sms: SendSms; limit: Limit; appUrl: string; secret: string };
 
 // In GitHub Codespaces zeigen Links auf die weitergeleitete Adresse statt auf localhost.
 const codespaceUrl =
@@ -13,6 +13,7 @@ const codespaceUrl =
 export const ctx: Ctx = {
   db: createDb(process.env.DATABASE_URL ?? "file:local.db"),
   send,
+  sms: sendSms,
   limit: createLimiter(),
   appUrl: process.env.APP_URL || codespaceUrl || "http://localhost:3000",
   get secret() {

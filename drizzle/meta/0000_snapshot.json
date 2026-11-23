@@ -1,7 +1,7 @@
 {
   "version": "6",
   "dialect": "sqlite",
-  "id": "3392d9d3-6f6e-4fe7-b780-1233edf9ccb7",
+  "id": "2e494f06-36f3-458c-b15b-0581885c30b8",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "tables": {
     "calendar_entries": {
@@ -300,6 +300,13 @@
           "notNull": false,
           "autoincrement": false
         },
+        "appealedAt": {
+          "name": "appealedAt",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
         "conditions": {
           "name": "conditions",
           "type": "text",
@@ -471,6 +478,27 @@
           "primaryKey": false,
           "notNull": false,
           "autoincrement": false
+        },
+        "phoneHash": {
+          "name": "phoneHash",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "phoneHint": {
+          "name": "phoneHint",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "deletedAt": {
+          "name": "deletedAt",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
         }
       },
       "indexes": {
@@ -480,6 +508,14 @@
             "email"
           ],
           "isUnique": true
+        },
+        "users_phone_active": {
+          "name": "users_phone_active",
+          "columns": [
+            "phoneHash"
+          ],
+          "isUnique": true,
+          "where": "\"users\".\"deletedAt\" is null"
         }
       },
       "foreignKeys": {},
