@@ -11,6 +11,7 @@ import { UserError } from "./errors";
 import { DAY } from "./ratelimit";
 import { formatLocal, parseLocal } from "./time";
 import { assertBookable } from "./calendar";
+import { PHONE_REQUIRED } from "./phone";
 
 export type User = typeof users.$inferSelect;
 type Parties = { customerId: number; craftsmanId: number; customer: User; craftsman: User; description: string };
@@ -69,9 +70,10 @@ export async function createRequest(ctx: Ctx, user: User, input: unknown, files:
   const photos = Images.parse(files);
   ctx.limit(`request:${user.id}`, 10, DAY); // Anfragen lösen Mails mit Freitext aus → Spam-Bremse
   const craftsman = await ctx.db.query.users.findFirst({
-    where: and(eq(users.id, data.craftsmanId), eq(users.role, "handwerker")),
+    where: and(eq(users.id, data.craftsmanId), eq(users.role, "handwerker"), isNull(users.deletedAt)),
   });
   if (!craftsman) throw new UserError("Handwerker unbekannt");
+  if (RESTRICTED.includes(data.urgency) && !user.phoneHash) throw new UserError(PHONE_REQUIRED);
   if (RESTRICTED.includes(data.urgency) && (await standingOf(ctx, user.id)).locked)
     throw new UserError("Wegen zu vieler unpassender Dringlichkeitsangaben sind Notfall- und kurzfristige Anfragen vorübergehend gesperrt");
   const earlier = await ctx.db.query.requests.findFirst({

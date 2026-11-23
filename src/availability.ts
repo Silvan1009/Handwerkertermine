@@ -1,4 +1,4 @@
-import { and, desc, eq, inArray, or, sql, type SQLWrapper } from "drizzle-orm";
+import { and, desc, eq, inArray, isNull, or, sql, type SQLWrapper } from "drizzle-orm";
 import { UserError } from "./errors";
 import { z } from "zod";
 import type { Ctx } from "./context";
@@ -47,6 +47,7 @@ export function findCraftsmen(ctx: Ctx, { urgency, trade, place }: Search = {}, 
   const col = urgency && users[urgency];
   const where = and(
     eq(users.role, "handwerker"),
+    isNull(users.deletedAt), // gelöschte Konten tauchen nicht auf
     col && inArray(col, ["frei", "eingeschraenkt"]),
     t ? like(users.trade, `%${escape(t)}%`) : undefined,
     p ? or(like(users.plz, `${escape(p)}%`), like(users.ort, `%${escape(p)}%`)) : undefined,

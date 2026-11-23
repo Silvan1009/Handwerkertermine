@@ -1,5 +1,5 @@
 import { createHmac, timingSafeEqual } from "node:crypto";
-import { eq, sql } from "drizzle-orm";
+import { and, eq, isNull, sql } from "drizzle-orm";
 import { z } from "zod";
 import type { Ctx } from "./context";
 import { ROLES, users } from "./db/schema";
@@ -7,7 +7,7 @@ import { HOUR } from "./ratelimit";
 
 // Stateless, HMAC-signierte Tokens: `base64url(json).ablauf.signatur`. Keine Token-Tabelle nötig.
 // Login-Links sind bis zum Ablauf mehrfach nutzbar – dafür zerstören Mail-Scanner (Link-Vorschau) sie nicht.
-type Purpose = "login" | "register" | "session" | "flash";
+type Purpose = "login" | "register" | "session" | "flash" | "phone";
 const hmac = (s: string, secret: string) => createHmac("sha256", secret).update(s).digest("base64url");
 
 export function sign(purpose: Purpose, data: object, secret: string, ttlMs: number, now = Date.now()) {
@@ -72,7 +72,7 @@ export async function register(ctx: Ctx, input: unknown) {
 /** Löst einen Login- oder Registrierungslink ein → User oder null. */
 export async function redeem(ctx: Ctx, token: string) {
   const login = verify<{ uid: number }>(token, "login", ctx.secret);
-  if (login) return ctx.db.query.users.findFirst({ where: eq(users.id, login.uid) });
+  if (login) return ctx.db.query.users.findFirst({ where: and(eq(users.id, login.uid), isNull(users.deletedAt)) }); // Link von vor der Löschung
   const reg = verify<Registration>(token, "register", ctx.secret);
   if (!reg) return undefined;
   const { name, email, role, trade } = reg;
