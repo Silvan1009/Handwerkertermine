@@ -1,7 +1,7 @@
 {
   "version": "6",
   "dialect": "sqlite",
-  "id": "cc5a371b-6688-4d65-ad7e-062ea0159857",
+  "id": "3392d9d3-6f6e-4fe7-b780-1233edf9ccb7",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "tables": {
     "calendar_entries": {
@@ -286,6 +286,20 @@
           "notNull": false,
           "autoincrement": false
         },
+        "appeal": {
+          "name": "appeal",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "appealReason": {
+          "name": "appealReason",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
         "conditions": {
           "name": "conditions",
           "type": "text",
@@ -389,6 +403,20 @@
         },
         "trade": {
           "name": "trade",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "plz": {
+          "name": "plz",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "ort": {
+          "name": "ort",
           "type": "text",
           "primaryKey": false,
           "notNull": false,

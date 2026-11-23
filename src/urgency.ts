@@ -2,7 +2,7 @@ import { and, desc, inArray, isNotNull } from "drizzle-orm";
 import type { Ctx } from "./context";
 import { requests, type Category, type Rating } from "./db/schema";
 
-export const RATING_LABELS = { gut: "👍", schlecht: "👎", katastrophe: "❌" } as const;
+export const RATING_LABELS = { gut: "👍", schlecht: "👎", katastrophe: "❌", unterschaetzt: "⬇️" } as const;
 
 /**
  * Scoring der Dringlichkeits-Selbsteinschätzung:
@@ -11,7 +11,7 @@ export const RATING_LABELS = { gut: "👍", schlecht: "👎", katastrophe: "❌"
  * - Score < 0 → keine Notfall-/kurzfristigen Anfragen. Normale/späte Termine bleiben möglich;
  *   gut bewertete davon heben die Sperre wieder auf (nach einem ❌ z. B. zwei 👍).
  */
-export const RATING_POINTS = { gut: 1, schlecht: -2, katastrophe: -5 } as const;
+export const RATING_POINTS = { gut: 1, schlecht: -2, katastrophe: -5, unterschaetzt: 0 } as const;
 const START = 3;
 const WINDOW = 10;
 export const RESTRICTED: Category[] = ["notfall", "kurzfristig"];

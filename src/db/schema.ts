@@ -4,7 +4,9 @@ import type { Condition, Pricing } from "../pricing";
 
 export const LEVELS = ["frei", "eingeschraenkt", "ausgebucht"] as const;
 export const CATEGORIES = ["notfall", "kurzfristig", "normal", "spaet"] as const;
-export const RATINGS = ["gut", "schlecht", "katastrophe"] as const;
+// gut = passend, schlecht = übertrieben, katastrophe = stark übertrieben, unterschaetzt = dringender als angegeben (keine Strafe)
+export const RATINGS = ["gut", "schlecht", "katastrophe", "unterschaetzt"] as const;
+export const APPEALS = ["offen", "zurueckgenommen", "bestaetigt"] as const;
 export const ROLES = ["kunde", "handwerker"] as const;
 export type Category = (typeof CATEGORIES)[number];
 export type Rating = (typeof RATINGS)[number];
@@ -16,6 +18,8 @@ export const users = sqliteTable("users", {
   email: text().notNull().unique(),
   role: text({ enum: ROLES }).notNull(),
   trade: text(),
+  plz: text(),
+  ort: text(),
   // Inserat: wie frei ist der Handwerker je Dringlichkeit (nur für Handwerker relevant)
   notfall: level(),
   kurzfristig: level(),
@@ -36,6 +40,8 @@ export const requests = sqliteTable(
     urgency: text({ enum: CATEGORIES }).notNull(), // Selbsteinschätzung des Kunden
     urgencyRating: text({ enum: RATINGS }), // Bewertung der Selbsteinschätzung durch den Handwerker
     ratedAt: integer({ mode: "timestamp" }),
+    appeal: text({ enum: APPEALS }), // Einspruch des Kunden gegen die Bewertung; null = keiner
+    appealReason: text(),
     // Bei Buchung geltende Rabatte und Aufschläge, als Snapshot – spätere Regeländerungen ändern sie nicht
     conditions: text({ mode: "json" }).$type<Condition[]>().notNull(),
     // Status wird abgeleitet (siehe statusOf) – keine separate Statusspalte, die auseinanderlaufen kann.
