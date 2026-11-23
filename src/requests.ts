@@ -1,11 +1,11 @@
-import { and, desc, eq, exists, gt, isNotNull, isNull, lt, ne, notExists, sql } from "drizzle-orm";
+import { and, desc, eq, exists, gt, isNotNull, isNull, lt, lte, ne, notExists, sql } from "drizzle-orm";
 import { alias } from "drizzle-orm/sqlite-core";
 import { z } from "zod";
 import type { Ctx } from "./context";
 import type { Db } from "./db";
 import { CATEGORIES, RATINGS, images, options, requests, users } from "./db/schema";
 import { CATEGORY_LABELS, paged } from "./availability";
-import { APPEALABLE, LOCK_HINT, RATING_LABELS, RESTRICTED, appealDeadline, standingOf } from "./urgency";
+import { APPEALABLE, APPEAL_PERIOD, LOCK_HINT, RATING_LABELS, RESTRICTED, appealDeadline, standingOf } from "./urgency";
 import { conditionsFor } from "./pricing";
 import { UserError } from "./errors";
 import { DAY } from "./ratelimit";
@@ -38,6 +38,7 @@ const loadRequest = (db: Db, id: number) =>
 /** Benachrichtigt die jeweils andere Partei. Ein Mailfehler darf die bereits gespeicherte Aktion nicht kippen. */
 async function notifyOther(ctx: Ctx, req: Parties, user: User, subject: string, extra?: string) {
   const other = req.customerId === user.id ? req.craftsman : req.customer;
+  if (other.deletedAt) return; // gelöschtes Konto: keine Mail an die Platzhalter-Adresse
   try {
     await ctx.send(other.email, subject, `${subject}\n\n${extra ? `${extra}\n\n` : ""}Anfrage: ${req.description}\n\n${ctx.appUrl}`);
   } catch (e) {
@@ -234,6 +235,43 @@ export async function decideAppeal(ctx: Ctx, user: User, requestId: number, deci
       ? `Einspruch erfolgreich: ${user.name} hat die Bewertung zurückgenommen`
       : `Einspruch abgelehnt: ${user.name} hält die Bewertung aufrecht`;
   await notifyOther(ctx, req, user, subject, locked ? LOCK_HINT : undefined);
+}
+
+/**
+ * Fristablauf: Mail an beide Seiten, sobald ein offener Einspruch 7 Tage alt ist (die Bewertung zählt dann wieder).
+ * Einmal je Einspruch (appealNotifiedAt); läuft per Timer in src/instrumentation.ts. Liefert die Zahl der Einsprüche.
+ */
+export async function notifyExpiredAppeals(ctx: Ctx, now = new Date()) {
+  const due = await ctx.db.query.requests.findMany({
+    where: and(
+      eq(requests.appeal, "offen"),
+      isNull(requests.appealNotifiedAt),
+      lte(requests.appealedAt, new Date(now.getTime() - APPEAL_PERIOD)), // dieselbe Grenze wie ratingCounts
+    ),
+    with: { customer: true, craftsman: true },
+  });
+  let done = 0;
+  for (const req of due) {
+    // bedingt = atomar: laufen zwei Jobs gleichzeitig, bekommt nur einer den Zuschlag
+    const [claimed] = await ctx.db
+      .update(requests)
+      .set({ appealNotifiedAt: now })
+      .where(and(eq(requests.id, req.id), eq(requests.appeal, "offen"), isNull(requests.appealNotifiedAt)))
+      .returning();
+    if (!claimed) continue;
+    done++;
+    const { locked } = await standingOf(ctx, req.customerId, now);
+    const rating = req.urgencyRating ? RATING_LABELS[req.urgencyRating] : "";
+    const subject = "Einspruchsfrist abgelaufen – die Bewertung zählt wieder";
+    // „user“ ist hier die jeweils andere Seite: notifyOther schreibt an den Rest der Anfrage
+    await notifyOther(ctx, req, req.craftsman, subject,
+      `${req.craftsman.name} hat über deinen Einspruch nicht innerhalb von 7 Tagen entschieden. Die Bewertung „${rating}“ zählt deshalb wieder.` +
+        (locked ? `\n\n${LOCK_HINT}` : ""));
+    await notifyOther(ctx, req, req.customer, subject,
+      `Du hast den Einspruch von ${req.customer.name} nicht innerhalb von 7 Tagen entschieden. Die Bewertung „${rating}“ zählt deshalb wieder. ` +
+        "Du kannst sie weiterhin zurücknehmen oder bestätigen.");
+  }
+  return done;
 }
 
 /** Darf der Kunde stornieren? Unbestätigt jederzeit, bestätigt nur bis 24 h vor Beginn des gewählten Vorschlags. */

@@ -42,6 +42,7 @@ CREATE TABLE `requests` (
 	`appeal` text,
 	`appealReason` text,
 	`appealedAt` integer,
+	`appealNotifiedAt` integer,
 	`conditions` text NOT NULL,
 	`chosenOptionId` integer,
 	`cancelledAt` integer,

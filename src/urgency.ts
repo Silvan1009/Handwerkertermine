@@ -79,4 +79,5 @@ export async function standingsOf(ctx: Ctx, customerIds: number[], now = new Dat
   );
 }
 
-export const standingOf = async (ctx: Ctx, customerId: number) => (await standingsOf(ctx, [customerId])).get(customerId)!;
+export const standingOf = async (ctx: Ctx, customerId: number, now = new Date()) =>
+  (await standingsOf(ctx, [customerId], now)).get(customerId)!;

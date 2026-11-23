@@ -1,7 +1,7 @@
 {
   "version": "6",
   "dialect": "sqlite",
-  "id": "2e494f06-36f3-458c-b15b-0581885c30b8",
+  "id": "73c8dded-6f01-42e0-98db-bed339427724",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "tables": {
     "calendar_entries": {
@@ -302,6 +302,13 @@
         },
         "appealedAt": {
           "name": "appealedAt",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "appealNotifiedAt": {
+          "name": "appealNotifiedAt",
           "type": "integer",
           "primaryKey": false,
           "notNull": false,

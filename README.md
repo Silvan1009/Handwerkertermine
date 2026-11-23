@@ -43,6 +43,7 @@ Das Postfach zeigt die letzten 50 Mails und leert sich bei jedem Neustart der Ap
 | `src/requests.ts` | Fachlogik: Anfragen, Vorschläge, Annehmen, Ablehnen, Berechtigungen, Benachrichtigungen. |
 | `src/availability.ts` | Inserat-Verfügbarkeit je Dringlichkeit; Suche nach Dringlichkeit, Gewerk, PLZ/Ort; Blättern (`paged`, 20 pro Seite). |
 | `src/profile.ts` + `src/app/profil/` | Profil bearbeiten: Name, Gewerk, PLZ, Ort (E-Mail und Rolle fest); Handynummer bestätigen; Konto löschen. |
+| `src/instrumentation.ts` | Hintergrund-Job: Mail bei abgelaufener Einspruchsfrist (`notifyExpiredAppeals` in `src/requests.ts`). |
 | `src/phone.ts` | Handynummer per SMS-Code bestätigen (stateless, nur HMAC-Hash gespeichert); Pflicht für Notfall/kurzfristig. |
 | `src/deletion.ts` | Konto löschen: anonymisieren, offene/künftige Termine stornieren + Mail, Fotos/Kalender/Profil entfernen. |
 | `src/urgency.ts` | Scoring der Dringlichkeits-Selbsteinschätzung (siehe unten). |
@@ -88,7 +89,8 @@ auch ohne Annahme oder nach Storno (gerade übertriebene Notfälle sollen bewert
 - Score **< 0** → keine Notfall- oder kurzfristigen Anfragen; normale/spätere Termine bleiben möglich und heben die Sperre mit 👍 wieder auf
 - Der Kunde bekommt bei jeder Bewertung eine Mail, bei Sperre mit Hinweis, wie er sie wieder aufhebt
 - **Einspruch** gegen 👎/❌ (einmal, mit Begründung): Bis der Handwerker entscheidet, zählt die Bewertung nicht – höchstens
-  **7 Tage**, danach zählt sie wieder. Er kann sie (auch später) zurücknehmen (zählt nie) oder bestätigen (zählt). Beide Seiten bekommen Mails.
+  **7 Tage**, danach zählt sie wieder. Er kann sie (auch später) zurücknehmen (zählt nie) oder bestätigen (zählt). Beide Seiten bekommen Mails –
+  auch bei **Fristablauf**: Ein Hintergrund-Job (`src/instrumentation.ts`: kurz nach dem Start, danach alle 10 Min.) verschickt sie genau einmal je Einspruch.
 - **Bewertungen hängen an der Handynummer:** Notfall-/kurzfristige Anfragen nur mit per SMS bestätigter Nummer; eine Nummer
   gehört höchstens einem aktiven Konto; Bewertungen aller Konten mit derselben Nummer (auch gelöschter) werden zusammengezählt
   → eine Sperre lässt sich weder mit einem neuen Konto noch durch Löschen umgehen.
@@ -123,4 +125,5 @@ Migration, die bei jeder Schemaänderung komplett neu erzeugt wird – keine Rü
 ## Noch nicht umgesetzt
 
 - Echter SMS-Versand: Es ist kein Anbieter angebunden – Codes landen (in der Entwicklung) im Test-Postfach.
-- Keine Benachrichtigung, wenn eine Einspruchsfrist abläuft (es gibt keinen Zeitplaner); die Anzeige in der Anfrage stimmt trotzdem.
+- Der Fristen-Job läuft per Timer im Server-Prozess (eine langlebige Instanz). Für mehrere Instanzen oder Serverless bräuchte es einen externen
+  Zeitplaner, der `notifyExpiredAppeals` aufruft – die Funktion ist idempotent und dafür bereit.

@@ -52,6 +52,7 @@ export const requests = sqliteTable(
     appeal: text({ enum: APPEALS }), // Einspruch des Kunden gegen die Bewertung; null = keiner
     appealReason: text(),
     appealedAt: integer({ mode: "timestamp" }), // Einspruchsfrist: 7 Tage ab hier
+    appealNotifiedAt: integer({ mode: "timestamp" }), // Mail „Frist abgelaufen“ verschickt (einmal je Einspruch)
     // Bei Buchung geltende Rabatte und Aufschläge, als Snapshot – spätere Regeländerungen ändern sie nicht
     conditions: text({ mode: "json" }).$type<Condition[]>().notNull(),
     // Status wird abgeleitet (siehe statusOf) – keine separate Statusspalte, die auseinanderlaufen kann.

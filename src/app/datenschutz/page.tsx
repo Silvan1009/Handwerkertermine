@@ -48,7 +48,7 @@ export default function Datenschutz() {
       <p><b>Einspruch:</b> Gegen eine Bewertung als übertrieben oder stark übertrieben kannst du bei der Anfrage einmal Einspruch
         mit Begründung einlegen. Solange der Handwerker nicht entschieden hat, zählt die Bewertung nicht – höchstens aber
         <b>7 Tage</b> ab dem Einspruch; danach zählt sie wieder. Er kann auch später noch entscheiden: Nimmt er die Bewertung zurück,
-        zählt sie nie; bestätigt er sie, zählt sie. Beide Seiten werden per Mail informiert. Den Zeitpunkt deines Einspruchs
+        zählt sie nie; bestätigt er sie, zählt sie. Beide Seiten werden per Mail informiert – auch dann, wenn die Frist abläuft. Den Zeitpunkt deines Einspruchs
         speichern wir, um die Frist zu berechnen.</p>
       <p><b>Bewertungen hängen an der Handynummer:</b> Hast du eine Nummer bestätigt, werden Bewertungen aller Konten mit derselben
         Nummer zusammengezählt – auch die eines früher gelöschten Kontos. So lässt sich eine Sperre nicht mit einem neuen Konto
@@ -58,7 +58,7 @@ export default function Datenschutz() {
       <p>Per SMS schicken wir nur den Bestätigungscode für deine Handynummer (10 Minuten gültig; höchstens 3 Codes und 5
         Eingabeversuche pro Stunde). Für den Versand erhält der SMS-Anbieter die Nummer.</p>
       <p>Wir schicken Login-Links und Benachrichtigungen (neue Anfrage, Vorschläge, Bestätigung, Absage, Stornierung, Bewertung,
-        Einspruch) an deine E-Mail-Adresse. Benachrichtigungen enthalten die Beschreibung der Anfrage. Newsletter oder Werbung
+        Einspruch, Ablauf der Einspruchsfrist) an deine E-Mail-Adresse. Benachrichtigungen enthalten die Beschreibung der Anfrage. Newsletter oder Werbung
         verschicken wir nicht.</p>
 
       <h3>Wie lange wir speichern – Konto löschen</h3>
