@@ -4,7 +4,7 @@ import { ctx } from "../context";
 import { CATEGORY_LABELS, LEVEL_LABELS, findCraftsmen } from "../availability";
 import { CATEGORIES, LEVELS, RATINGS, type Category } from "../db/schema";
 import { canCancel, listRequests, statusOf } from "../requests";
-import { RATING_LABELS, RESTRICTED, standingsOf } from "../urgency";
+import { APPEALABLE, LOCK_HINT, RATING_ICONS, RATING_LABELS, RESTRICTED, standingsOf } from "../urgency";
 import { formatLocal as time } from "../time";
 import { devMailboxEnabled } from "../mail";
 import { KIND_LABELS, PRICE_KINDS, formatConditions, type Condition } from "../pricing";
@@ -74,7 +74,7 @@ export default async function Home({ searchParams }: { searchParams: Promise<Rec
   const standingText = (id: number) => {
     const s = standings.get(id)!;
     const count = (r: (typeof RATINGS)[number]) => s.ratings.filter((x) => x === r).length;
-    return `${RATINGS.map((r) => `${RATING_LABELS[r]} ${count(r)}`).join(" · ")} · Score ${s.score}${s.locked ? " ⛔" : ""}`;
+    return `${RATINGS.map((r) => `${RATING_ICONS[r]} ${count(r)}`).join(" · ")} · Score ${s.score}${s.locked ? " ⛔" : ""}`;
   };
   const myStanding = isKunde ? standings.get(user.id)! : undefined;
 
@@ -91,7 +91,7 @@ export default async function Home({ searchParams }: { searchParams: Promise<Rec
         <p>
           Deine Dringlichkeits-Einschätzungen: {standingText(user.id)}
           {myStanding.locked && (
-            <><br />⛔ Notfall- und kurzfristige Anfragen sind vorübergehend gesperrt. Gut eingeschätzte normale Termine heben die Sperre wieder auf.</>
+            <><br />⛔ {LOCK_HINT}</>
           )}
         </p>
       )}
@@ -202,7 +202,11 @@ export default async function Home({ searchParams }: { searchParams: Promise<Rec
         return (
           <article key={r.id} style={{ borderTop: "1px solid #ccc", padding: "0.5rem 0" }}>
             <b>{isKunde ? r.craftsman.name : r.customer.name}</b> · {statusOf(r)} · {CATEGORY_LABELS[r.urgency]}
-            {r.urgencyRating && <> · Einschätzung bewertet: {RATING_LABELS[r.urgencyRating]}</>}
+            {r.urgencyRating && (
+              <> · Einschätzung bewertet:{" "}
+                {r.appeal === "zurueckgenommen" ? <s>{RATING_LABELS[r.urgencyRating]}</s> : RATING_LABELS[r.urgencyRating]}
+              </>
+            )}
             {!isKunde && <><br /><small>Kunde bisher: {standingText(r.customerId)}</small></>}
             <p>{r.description}</p>
             {r.images.length > 0 && (
@@ -229,11 +233,32 @@ export default async function Home({ searchParams }: { searchParams: Promise<Rec
                 </li>
               ))}
             </ul>
-            {!isKunde && !open && !r.cancelledAt && !r.urgencyRating && (
+            {!isKunde && !r.urgencyRating && (
               <form action={a.rateAction}>
                 <input type="hidden" name="requestId" value={r.id} />
                 War „{CATEGORY_LABELS[r.urgency]}“ passend?{" "}
                 {RATINGS.map((x) => <button key={x} name="rating" value={x}>{RATING_LABELS[x]}</button>)}
+              </form>
+            )}
+            {r.appeal && (
+              <p>
+                ⚖️ {r.appeal === "offen" ? "Einspruch offen" : r.appeal === "zurueckgenommen" ? "Einspruch erfolgreich – Bewertung zurückgenommen" : "Einspruch abgelehnt – Bewertung bleibt"}
+                : „{r.appealReason}“
+              </p>
+            )}
+            {!isKunde && r.appeal === "offen" && (
+              <form action={a.decideAppealAction}>
+                <input type="hidden" name="requestId" value={r.id} />
+                <button name="decision" value="zurueckgenommen">Bewertung zurücknehmen</button>{" "}
+                <button name="decision" value="bestaetigt">Bewertung bestätigen</button>
+              </form>
+            )}
+            {isKunde && !r.appeal && r.urgencyRating && APPEALABLE.includes(r.urgencyRating) && (
+              <form action={a.appealAction}>
+                <input type="hidden" name="requestId" value={r.id} />
+                Nicht einverstanden?{" "}
+                <input name="reason" maxLength={500} required placeholder="Begründung" aria-label="Begründung für den Einspruch" />{" "}
+                <button>Einspruch einlegen</button>
               </form>
             )}
             {open && fromOther && (
