@@ -11,11 +11,11 @@ test("Fußzeile führt zur Datenschutzseite, die Bewertung, Sperre und Einspruch
   await kunde.locator("footer").getByRole("link", { name: "Datenschutz" }).click();
   await expect(kunde).toHaveURL(/\/datenschutz$/);
   await expect(kunde.getByRole("heading", { name: "🔒 Datenschutz" })).toBeVisible();
-  await expect(kunde.getByText("Entwurf:")).toBeVisible();
+  await expect(kunde.getByText("Entwurf:", { exact: true })).toBeVisible();
   for (const h of ["Welche Daten wir speichern", "Wer was sieht", "Bewertung der Dringlichkeit und automatische Sperre", "E-Mails", "Wie lange wir speichern"])
     await expect(kunde.getByRole("heading", { name: h })).toBeVisible();
   await expect(kunde.getByText("❌ stark übertrieben: −5 Punkte")).toBeVisible();
-  await expect(kunde.getByText(/Einspruch:/)).toBeVisible();
+  await expect(kunde.getByText("Einspruch:", { exact: true })).toBeVisible();
   await expect(kunde.getByText(/bis dein Konto gelöscht wird/)).toBeVisible();
   // Fußzeile auch ohne Anmeldung
   const anonym = await (await browser.newContext()).newPage();

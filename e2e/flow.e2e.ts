@@ -34,6 +34,7 @@ test("Anfrage mit Foto → Vorschlag → Annahme → Bewertung", async ({ browse
   const kunde = await loginAs(browser, 1);
   const hw = await loginAs(browser, 2);
 
+  await kunde.goto("/?gewerk=Sanitär"); // Liste ist seitenweise – gezielt suchen statt auf Seite 1 hoffen
   await kunde.getByLabel(/Müller/).check();
   await kunde.fill("textarea", "Rohrbruch im Keller");
   await kunde.selectOption("[name=urgency]", "notfall");
@@ -58,7 +59,7 @@ test("Anfrage mit Foto → Vorschlag → Annahme → Bewertung", async ({ browse
   await expect(kunde.locator("article")).toContainText("· bestätigt ·");
 
   await hw.reload();
-  await hw.getByRole("button", { name: "👍" }).click();
+  await hw.locator("article", { hasText: "Rohrbruch im Keller" }).getByRole("button", { name: /👍/ }).click();
   await expect(hw.locator("article")).toContainText("Einschätzung bewertet: 👍");
 });
 
@@ -96,7 +97,7 @@ test("Storno: unbestätigt jederzeit, bestätigt nur bis 24 h vorher", async ({ 
   const hw = await loginAs(browser, 3); // Schmidt Elektro
 
   const anfrage = async (text: string) => {
-    await kunde.goto("/");
+    await kunde.goto("/?gewerk=Elektriker");
     await kunde.getByLabel(/Schmidt/).check();
     await kunde.fill("textarea", text);
     await kunde.selectOption("[name=urgency]", "normal");
@@ -139,7 +140,7 @@ test("Zusammenspiel: Blocker im Kalender verhindert Vorschläge – auch Gegenvo
   await blocker.getByRole("button", { name: "Blocker eintragen" }).click();
   await expect(hw.getByText("✅ Blocker eingetragen")).toBeVisible();
 
-  await kunde.goto("/");
+  await kunde.goto("/?gewerk=Elektriker");
   await kunde.getByLabel(/Schmidt/).check();
   await kunde.fill("textarea", "Sicherung fliegt raus");
   await kunde.selectOption("[name=urgency]", "normal");
