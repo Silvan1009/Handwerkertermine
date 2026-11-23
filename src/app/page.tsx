@@ -17,13 +17,26 @@ const inline = { display: "inline" };
 /** In der Buchung geltende Rabatte/Aufschläge – Abrechnung erfolgt außerhalb der App. */
 const Conditions = ({ conditions }: { conditions: Condition[] }) =>
   conditions.length > 0 && <p>💶 Konditionen dieser Buchung: {formatConditions(conditions)}</p>;
+/** Blättern – nur sichtbar, wenn es mehr als eine Seite gibt. */
+const Pager = ({ page, more, href }: { page: number; more: boolean; href: (page: number) => string }) =>
+  (page > 1 || more) && (
+    <p>
+      {page > 1 && <a href={href(page - 1)}>‹ Zurück</a>} Seite {page} {more && <a href={href(page + 1)}>Weiter ›</a>}
+    </p>
+  );
+const pageNo = (s?: string) => Math.min(Math.max(1, parseInt(s ?? "") || 1), 10_000);
 
-export default async function Home({ searchParams }: { searchParams: Promise<{ flash?: string; dringlichkeit?: string }> }) {
+export default async function Home({ searchParams }: { searchParams: Promise<Record<"flash" | "dringlichkeit" | "gewerk" | "ort" | "hseite" | "aseite", string | undefined>> }) {
   const user = await currentUser();
   const params = await searchParams;
   const f = params.flash ? openFlash(ctx, params.flash) : null; // nur von uns signierte Meldungen anzeigen
   const dringlichkeit = params.dringlichkeit;
   const urgency = CATEGORIES.find((c) => c === dringlichkeit) as Category | undefined;
+  const search = { dringlichkeit: urgency ?? "", gewerk: params.gewerk?.trim() ?? "", ort: params.ort?.trim() ?? "" };
+  const hseite = pageNo(params.hseite), aseite = pageNo(params.aseite);
+  /** Link zu einer anderen Seite: Filter und die Seite der jeweils anderen Liste bleiben erhalten. */
+  const href = (change: { hseite?: number; aseite?: number }) =>
+    "/?" + new URLSearchParams(Object.entries({ ...search, hseite, aseite, ...change }).filter(([, v]) => v && v !== 1).map(([k, v]) => [k, `${v}`]));
   const flash = (
     <>
       {f && <p>{f.kind === "error" ? "❌" : "✉️"} {f.text}</p>}
@@ -54,8 +67,8 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ f
   }
 
   const isKunde = user.role === "kunde";
-  const list = await listRequests(ctx, user);
-  const craftsmen = isKunde ? await findCraftsmen(ctx, urgency) : [];
+  const list = await listRequests(ctx, user, aseite);
+  const craftsmen = isKunde ? await findCraftsmen(ctx, { urgency, trade: search.gewerk, place: search.ort }, hseite) : undefined;
   // Kunde: eigenes Profil; Handwerker: Zuverlässigkeit jedes anfragenden Kunden
   const standings = await standingsOf(ctx, [...new Set(isKunde ? [user.id] : list.map((r) => r.customerId))]);
   const standingText = (id: number) => {
@@ -91,19 +104,21 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ f
             <option value="">alle</option>
             {CATEGORIES.map((k) => <option key={k} value={k}>{CATEGORY_LABELS[k]}</option>)}
           </select>{" "}
-          <button>Filtern</button>
+          <label>Gewerk: <input name="gewerk" defaultValue={search.gewerk} placeholder="z. B. Sanitär" size={12} /></label>{" "}
+          <label>PLZ oder Ort: <input name="ort" defaultValue={search.ort} placeholder="z. B. 80 oder München" size={16} /></label>{" "}
+          <button>Suchen</button>
         </form>
       )}
 
-      {isKunde && (
+      {craftsmen && (
         <form action={a.createRequestAction}>
           <h2>Neue Anfrage</h2>
-          {craftsmen.length === 0 && <p>Kein Handwerker für diese Dringlichkeit frei.</p>}
+          {craftsmen.length === 0 && <p>Kein passender Handwerker gefunden.</p>}
           <div className="scroll">
           <table>
             <thead>
               <tr>
-                <th /><th align="left">Handwerker</th>
+                <th /><th align="left">Handwerker</th><th align="left">PLZ / Ort</th>
                 {CATEGORIES.map((k) => <th key={k}>{CATEGORY_LABELS[k]}</th>)}
               </tr>
             </thead>
@@ -112,12 +127,14 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ f
                 <tr key={c.id}>
                   <td><input type="radio" name="craftsmanId" value={c.id} id={`c${c.id}`} required /></td>
                   <td><label htmlFor={`c${c.id}`}>{c.name}<br /><small>{c.trade}</small></label></td>
+                  <td>{[c.plz, c.ort].filter(Boolean).join(" ") || "–"}</td>
                   {CATEGORIES.map((k) => <td key={k}>{c[k] ? LEVEL_LABELS[c[k]] : "–"}</td>)}
                 </tr>
               ))}
             </tbody>
           </table>
           </div>
+          <Pager page={hseite} more={craftsmen.more} href={(p) => href({ hseite: p })} />
           <textarea name="description" placeholder="Was ist zu tun?" required />
           <br />
           📷 Fotos (optional, max. 5): <ImagePicker />
@@ -246,6 +263,7 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ f
           </article>
         );
       })}
+      <Pager page={aseite} more={list.more} href={(p) => href({ aseite: p })} />
     </>
   );
 }

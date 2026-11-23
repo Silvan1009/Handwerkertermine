@@ -40,6 +40,6 @@ it("Suche nach Dringlichkeit: nur frei/eingeschränkt, frei zuerst", async () =>
       { name: "C", email: "c@x.de", role: "handwerker", notfall: "ausgebucht" },
     ])
     .returning();
-  expect((await findCraftsmen(ctx, "notfall")).map((c) => c.id)).toEqual([b.id, a.id]);
+  expect((await findCraftsmen(ctx, { urgency: "notfall" })).map((c) => c.id)).toEqual([b.id, a.id]);
   expect(await findCraftsmen(ctx)).toHaveLength(4); // ohne Filter alle (inkl. H ohne Angabe)
 });

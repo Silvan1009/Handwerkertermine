@@ -1,4 +1,5 @@
-import { and, desc, eq, exists, isNotNull, isNull, ne, notExists } from "drizzle-orm";
+import { and, desc, eq, exists, gt, isNotNull, isNull, lt, ne, notExists, sql } from "drizzle-orm";
+import { alias } from "drizzle-orm/sqlite-core";
 import { z } from "zod";
 import type { Ctx } from "./context";
 import type { Db } from "./db";
@@ -74,7 +75,7 @@ export async function createRequest(ctx: Ctx, user: User, input: unknown, files:
   if (RESTRICTED.includes(data.urgency) && (await standingOf(ctx, user.id)).locked)
     throw new UserError("Wegen zu vieler unpassender Dringlichkeitsangaben sind Notfall- und kurzfristige Anfragen vorübergehend gesperrt");
   const earlier = await ctx.db.query.requests.findFirst({
-    where: and(eq(requests.customerId, user.id), eq(requests.craftsmanId, craftsman.id), isNotNull(requests.chosenOptionId)),
+    where: and(eq(requests.customerId, user.id), eq(requests.craftsmanId, craftsman.id), isNotNull(requests.chosenOptionId), isNull(requests.cancelledAt)),
   });
   const conditions = conditionsFor(craftsman.pricing ?? {}, { urgency: data.urgency, firstCustomer: !earlier });
   const [row] = await ctx.db.insert(requests).values({ ...data, conditions, customerId: user.id }).returning();
@@ -124,14 +125,33 @@ export async function chooseOption(ctx: Ctx, user: User, optionId: number) {
   if (opt.proposedById === user.id) throw new UserError("Eigene Vorschläge kann nur die Gegenseite annehmen");
   if (opt.rejected) throw new UserError("Vorschlag wurde abgelehnt");
   await assertBookable(ctx, req.craftsmanId, opt.start, opt.end); // Kalender kann sich seit dem Vorschlag geändert haben
-  // Bedingtes Update = atomar, auch bei Doppelklick oder gleichzeitigem Ablehnen.
+  // Bedingtes Update = atomar, auch bei Doppelklick, gleichzeitigem Ablehnen oder gleichzeitiger Annahme einer anderen
+  // Anfrage. Alle Prüfungen stecken als Unterabfragen in EINER Anweisung (keine Transaktion nötig).
   const stillOpen = ctx.db.select().from(options).where(and(eq(options.id, opt.id), eq(options.rejected, false)));
+  const other = alias(requests, "other");
+  const chosen = alias(options, "chosen");
+  const confirmed = and(isNotNull(other.chosenOptionId), isNull(other.cancelledAt), ne(other.id, req.id));
+  // überschneidender bestätigter App-Termin desselben Handwerkers
+  const clash = ctx.db
+    .select({ id: other.id })
+    .from(other)
+    .innerJoin(chosen, eq(chosen.id, other.chosenOptionId))
+    .where(and(confirmed, eq(other.craftsmanId, req.craftsmanId), lt(chosen.start, opt.end), gt(chosen.end, opt.start)));
+  // anderer bestätigter Auftrag desselben Kunden beim Handwerker → kein Erstkundenrabatt (auch bei parallelen Anfragen nur einmal)
+  const repeat = ctx.db
+    .select({ id: other.id })
+    .from(other)
+    .where(and(confirmed, eq(other.customerId, req.customerId), eq(other.craftsmanId, req.craftsmanId)));
+  const withoutFirst = JSON.stringify(req.conditions.filter((c) => c.kind !== "erstkunde"));
   const [row] = await ctx.db
     .update(requests)
-    .set({ chosenOptionId: opt.id })
-    .where(and(eq(requests.id, req.id), isNull(requests.chosenOptionId), isNull(requests.cancelledAt), exists(stillOpen)))
+    .set({ chosenOptionId: opt.id, conditions: sql`CASE WHEN ${exists(repeat)} THEN ${withoutFirst} ELSE ${requests.conditions} END` })
+    .where(and(eq(requests.id, req.id), isNull(requests.chosenOptionId), isNull(requests.cancelledAt), exists(stillOpen), notExists(clash)))
     .returning();
-  if (!row) throw new UserError("Es wurde bereits ein Vorschlag gewählt");
+  if (!row) {
+    await assertBookable(ctx, req.craftsmanId, opt.start, opt.end); // präzise Meldung, falls inzwischen belegt
+    throw new UserError("Es wurde bereits ein Vorschlag gewählt");
+  }
   await notifyOther(ctx, req, user, `Termin bestätigt von ${user.name}`);
   return row;
 }
@@ -157,18 +177,59 @@ export async function rejectOptions(ctx: Ctx, user: User, requestId: number) {
   await notifyOther(ctx, req, user, `${user.name} hat die Vorschläge abgelehnt`);
 }
 
-/** Handwerker bewertet nach Bestätigung einmalig die Dringlichkeits-Selbsteinschätzung des Kunden. */
+/**
+ * Handwerker bewertet einmalig die Dringlichkeits-Selbsteinschätzung des Kunden – jederzeit, auch ohne Annahme
+ * oder nach Storno (gerade übertriebene Notfälle nimmt er oft nicht an). Mail an den Kunden, ggf. mit Sperrhinweis.
+ */
 export async function rateUrgency(ctx: Ctx, user: User, requestId: number, rating: unknown) {
   const r = z.enum(RATINGS).parse(rating);
-  const req = active(participant(await loadRequest(ctx.db, requestId), user));
+  const req = participant(await loadRequest(ctx.db, requestId), user);
   if (req.craftsmanId !== user.id) deny();
-  if (!req.chosenOptionId) throw new UserError("Bewertung erst nach Bestätigung möglich");
   const [row] = await ctx.db
     .update(requests)
     .set({ urgencyRating: r, ratedAt: new Date() })
     .where(and(eq(requests.id, req.id), isNull(requests.urgencyRating)))
     .returning();
   if (!row) throw new UserError("Bereits bewertet");
+  const { locked } = await standingOf(ctx, req.customerId);
+  await notifyOther(ctx, req, user, `Deine Dringlichkeitsangabe wurde bewertet: ${RATING_LABELS[r]}`, locked ? LOCK_HINT : undefined);
+}
+
+const Reason = z.string("Begründung fehlt").trim().min(1, "Begründung fehlt").max(500, "Begründung zu lang (max. 500 Zeichen)");
+
+/** Kunde legt einmal Einspruch gegen eine Bewertung als (stark) übertrieben ein – bis zur Entscheidung zählt sie nicht. */
+export async function appealRating(ctx: Ctx, user: User, requestId: number, reason: unknown) {
+  const text = Reason.parse(reason);
+  const req = participant(await loadRequest(ctx.db, requestId), user);
+  if (req.customerId !== user.id) deny();
+  if (!req.urgencyRating || !APPEALABLE.includes(req.urgencyRating))
+    throw new UserError("Einspruch nur gegen eine Bewertung als übertrieben möglich");
+  const [row] = await ctx.db
+    .update(requests)
+    .set({ appeal: "offen", appealReason: text })
+    .where(and(eq(requests.id, req.id), isNull(requests.appeal)))
+    .returning();
+  if (!row) throw new UserError("Einspruch wurde bereits eingelegt");
+  await notifyOther(ctx, req, user, `Einspruch von ${user.name} gegen deine Bewertung`, `Begründung: ${text}`);
+}
+
+/** Handwerker entscheidet über einen offenen Einspruch: Bewertung zurücknehmen oder bestätigen. Mail an den Kunden. */
+export async function decideAppeal(ctx: Ctx, user: User, requestId: number, decision: unknown) {
+  const d = z.enum(["zurueckgenommen", "bestaetigt"]).parse(decision);
+  const req = participant(await loadRequest(ctx.db, requestId), user);
+  if (req.craftsmanId !== user.id) deny();
+  const [row] = await ctx.db
+    .update(requests)
+    .set({ appeal: d })
+    .where(and(eq(requests.id, req.id), eq(requests.appeal, "offen")))
+    .returning();
+  if (!row) throw new UserError("Kein offener Einspruch");
+  const { locked } = await standingOf(ctx, req.customerId);
+  const subject =
+    d === "zurueckgenommen"
+      ? `Einspruch erfolgreich: ${user.name} hat die Bewertung zurückgenommen`
+      : `Einspruch abgelehnt: ${user.name} hält die Bewertung aufrecht`;
+  await notifyOther(ctx, req, user, subject, locked ? LOCK_HINT : undefined);
 }
 
 /** Darf der Kunde stornieren? Unbestätigt jederzeit, bestätigt nur bis 24 h vor Beginn des gewählten Vorschlags. */

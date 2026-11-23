@@ -125,9 +125,9 @@ describe("Dringlichkeit & Bewertung", () => {
     await expect(createRequest(ctx, kunde, { craftsmanId: handwerker.id, description: "x" })).rejects.toThrow("Dringlichkeit");
   });
 
-  it("nur der Handwerker bewertet, erst nach Bestätigung, nur einmal", async () => {
+  it("nur der Handwerker bewertet, jederzeit (auch vor Bestätigung), nur einmal", async () => {
     const offen = await anfrage();
-    await expect(rateUrgency(ctx, handwerker, offen.id, "gut")).rejects.toThrow("nach Bestätigung");
+    await rateUrgency(ctx, handwerker, offen.id, "gut");
     const r = await bestaetigt();
     await expect(rateUrgency(ctx, kunde, r.id, "gut")).rejects.toThrow("Nicht erlaubt");
     await expect(rateUrgency(ctx, andererHandwerker, r.id, "gut")).rejects.toThrow("Nicht erlaubt");

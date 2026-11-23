@@ -55,11 +55,13 @@ test("Kunde: kein Gewerk, PLZ und Ort optional", async ({ browser }) => {
   await expect(field(kunde, "plz")).toHaveValue("80331");
   await expect(field(kunde, "ort")).toHaveValue("München");
 
-  // wieder leeren ist erlaubt
+  // wieder leeren ist erlaubt (neu laden, damit die alte Meldung weg ist)
+  await kunde.goto("/profil");
   await field(kunde, "plz").fill("");
   await field(kunde, "ort").fill("");
   await save(kunde);
   await expect(kunde.getByText("✅ Profil gespeichert")).toBeVisible();
+  await kunde.goto("/profil");
   await expect(field(kunde, "plz")).toHaveValue("");
   await expect(field(kunde, "ort")).toHaveValue("");
 

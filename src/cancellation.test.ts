@@ -85,7 +85,7 @@ describe("Storno durch den Kunden", () => {
 
     const b = await bestaetigt(10);
     await cancelRequest(ctx, kunde, b.id, proposedAt);
-    await expect(rateUrgency(ctx, handwerker, b.id, "gut")).rejects.toThrow("Anfrage wurde storniert");
+    await rateUrgency(ctx, handwerker, b.id, "gut"); // Ausnahme: Bewertung bleibt möglich (siehe rating.test.ts)
   });
 
   it("Storno und Annehmen gleichzeitig: nie storniert und zugleich neu bestätigt", async () => {
