@@ -146,6 +146,7 @@ export default async function Home({ searchParams }: { searchParams: Promise<Rec
               <option key={k} value={k} disabled={myStanding?.locked && RESTRICTED.includes(k)}>{CATEGORY_LABELS[k]}</option>
             ))}
           </select>
+          {!user.phoneHash && <><br /><small>📱 Notfall und kurzfristig nur mit bestätigter Handynummer – <a href="/profil">im Profil bestätigen</a></small></>}
           <br />
           <button>Anfrage senden</button>
         </form>

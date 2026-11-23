@@ -15,6 +15,8 @@ import type { User } from "./requests";
 export const PHONE_REQUIRED =
   "Notfall- und kurzfristige Anfragen gehen nur mit bestätigter Handynummer – bitte im Profil (/profil) bestätigen";
 const CODE_TTL = 10 * 60_000;
+/** UI: Cookie, in dem das Token bis zur Code-Eingabe wartet (enthält nur Hashes). */
+export const PHONE_COOKIE = "phone-code";
 type Pending = { uid: number; hash: string; hint: string; code: string };
 
 /** Leerzeichen, Bindestriche, Klammern, Schrägstriche raus; 00 → +, führende 0 → +49; dann nur +<8–15 Ziffern>. */

@@ -12,7 +12,7 @@ test("Bewertung ohne Annahme → Sperre + Mail → Einspruch → Handwerker nimm
   const trade = `Bewertungstest${run}`;
   const text = `Keller unter Wasser ${run}`;
   const hw = await registerAndLogin(browser, { name: "Bewertung HW", role: "handwerker", trade }, errors);
-  const kunde = await registerAndLogin(browser, { name: "Bewertung Kundin", role: "kunde" }, errors);
+  const kunde = await registerAndLogin(browser, { name: "Bewertung Kundin", role: "kunde", phone: true }, errors);
 
   // Kundin stellt eine Notfall-Anfrage
   await kunde.goto(`/?gewerk=${trade}`);
