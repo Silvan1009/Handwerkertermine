@@ -71,7 +71,7 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ f
         Angemeldet als <b>{user.name}</b>{" "}
         <form action={a.logoutAction} style={inline}><button>Abmelden</button></form>
       </div>
-      {!isKunde && <p><a href="/kalender">📅 Kalender</a></p>}
+      <p><a href="/profil">👤 Profil</a>{!isKunde && <> · <a href="/kalender">📅 Kalender</a></>}</p>
       {flash}
 
       {myStanding && (

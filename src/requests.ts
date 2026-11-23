@@ -3,8 +3,8 @@ import { z } from "zod";
 import type { Ctx } from "./context";
 import type { Db } from "./db";
 import { CATEGORIES, RATINGS, images, options, requests, users } from "./db/schema";
-import { CATEGORY_LABELS } from "./availability";
-import { RESTRICTED, standingOf } from "./urgency";
+import { CATEGORY_LABELS, paged } from "./availability";
+import { APPEALABLE, LOCK_HINT, RATING_LABELS, RESTRICTED, standingOf } from "./urgency";
 import { conditionsFor } from "./pricing";
 import { UserError } from "./errors";
 import { DAY } from "./ratelimit";
@@ -34,10 +34,10 @@ const loadRequest = (db: Db, id: number) =>
   db.query.requests.findFirst({ where: eq(requests.id, id), with: { customer: true, craftsman: true } });
 
 /** Benachrichtigt die jeweils andere Partei. Ein Mailfehler darf die bereits gespeicherte Aktion nicht kippen. */
-async function notifyOther(ctx: Ctx, req: Parties, user: User, subject: string) {
+async function notifyOther(ctx: Ctx, req: Parties, user: User, subject: string, extra?: string) {
   const other = req.customerId === user.id ? req.craftsman : req.customer;
   try {
-    await ctx.send(other.email, subject, `${subject}\n\nAnfrage: ${req.description}\n\n${ctx.appUrl}`);
+    await ctx.send(other.email, subject, `${subject}\n\n${extra ? `${extra}\n\n` : ""}Anfrage: ${req.description}\n\n${ctx.appUrl}`);
   } catch (e) {
     console.error("Mailversand fehlgeschlagen", e);
   }
@@ -213,12 +213,15 @@ export async function loadImage(ctx: Ctx, user: User, id: number) {
   return img;
 }
 
-/** Die neuesten `limit` Anfragen des Users. */
-export function listRequests(ctx: Ctx, user: User, limit = 50) {
-  return ctx.db.query.requests.findMany({
-    where: eq(user.role === "kunde" ? requests.customerId : requests.craftsmanId, user.id),
-    with: { customer: true, craftsman: true, options: { orderBy: options.start }, images: { columns: { id: true } } },
-    orderBy: desc(requests.id),
-    limit,
-  });
+/** Anfragen des Users, neueste zuerst – Seite `page` (ab 1) zu je PAGE_SIZE; `.more` = es gibt eine nächste Seite. */
+export function listRequests(ctx: Ctx, user: User, page = 1) {
+  return paged(page, (limit, offset) =>
+    ctx.db.query.requests.findMany({
+      where: eq(user.role === "kunde" ? requests.customerId : requests.craftsmanId, user.id),
+      with: { customer: true, craftsman: true, options: { orderBy: options.start }, images: { columns: { id: true } } },
+      orderBy: desc(requests.id),
+      limit,
+      offset,
+    }),
+  );
 }
