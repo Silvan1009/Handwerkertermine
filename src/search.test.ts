@@ -26,12 +26,12 @@ describe("Handwerker suchen nach Gewerk und PLZ/Ort", () => {
     expect(await names({ trade: " HEIZUNG " })).toEqual(["Müller", "Özdemir"]);
     expect(await names({ trade: "öl_" })).toEqual(["Özdemir"]);
     expect(await names({ trade: "%" })).toEqual([]);
-    expect(await names({ trade: "l_h" })).toEqual(["Özdemir"]); // _ ist kein Platzhalter
+    expect(await names({ trade: "r_&" })).toEqual([]); // _ ist kein Platzhalter (sonst „Sanitär & …“)
   });
 
   it("PLZ beginnt mit Eingabe oder Ort enthält Eingabe; Kunden werden nie gefunden", async () => {
-    expect(await names({ place: "8" })).toEqual(["Müller", "Özdemir", "Schmidt"]);
-    expect(await names({ place: "8022" })).toEqual(["Schmidt"]);
+    expect(await names({ place: "8" })).toEqual(["Müller", "Schmidt", "Özdemir"]);
+    expect(await names({ place: "852" })).toEqual(["Schmidt"]);
     expect(await names({ place: "0335" })).toEqual([]); // nur Präfix, nicht mittendrin
     expect(await names({ place: "münch" })).toEqual(["Müller"]);
     expect(await names({ place: "ÜBERLING" })).toEqual(["Özdemir"]);

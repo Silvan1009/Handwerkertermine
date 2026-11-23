@@ -16,6 +16,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <style>{css}</style>
         <h1><a href="/">Handwerkertermine</a></h1>
         {children}
+        <footer style={{ marginTop: "2rem", borderTop: "1px solid #ccc", paddingTop: "0.5rem" }}>
+          <small><a href="/datenschutz">Datenschutz</a></small>
+        </footer>
       </body>
     </html>
   );
